@@ -56,6 +56,19 @@ canvas#c{display:block;width:100%;height:100%}
 .blackout .dt{font:400 clamp(44px,12vw,92px)/1 "Lilita One";color:#ff3b3b;-webkit-text-stroke:3px #2a0000;paint-order:stroke fill}
 .blackout .ds{margin-top:16px;font:800 clamp(16px,4.2vw,24px)/1.5 "Nunito";color:#ffd9d9;max-width:520px}
 .blackout .ds b{color:#ff8a8a}
+.zap{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+.glitch{position:absolute;inset:0;pointer-events:none;display:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.35) 0 2px,rgba(0,255,255,.1) 2px 4px)}
+.glitch::after{content:"BŁĄD: ZBÓJ.EXE";position:absolute;left:50%;top:40%;transform:translateX(-50%);font:400 clamp(24px,7vw,60px) "Lilita One";color:#fff;white-space:nowrap;text-shadow:3px 0 #f0f,-3px 0 #0ff;animation:bugText .14s steps(2) infinite}
+@keyframes bugText{0%{transform:translateX(-50%) skewX(0)}50%{transform:translateX(-48%) skewX(8deg)}100%{transform:translateX(-52%)}}
+.bugged .glitch{display:block}
+.bugged canvas#c{animation:bugShift .12s steps(2) infinite}
+@keyframes bugShift{0%{transform:translate(0,0);filter:saturate(2) hue-rotate(0deg)}25%{transform:translate(-8px,3px) skewX(2deg);filter:hue-rotate(90deg)}50%{transform:translate(6px,-4px);filter:hue-rotate(200deg) invert(.12)}75%{transform:translate(-3px,-2px) scaleY(1.02);filter:hue-rotate(300deg)}100%{transform:translate(4px,5px);filter:saturate(2.4)}}
+.fadeov{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .25s}
+.xhair{position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;pointer-events:none;display:none;mix-blend-mode:difference}
+.xhair::before,.xhair::after{content:"";position:absolute;background:#fff}
+.xhair::before{left:8px;top:0;width:2px;height:18px}.xhair::after{top:8px;left:0;height:2px;width:18px}
+.digbar{position:absolute;left:50%;top:calc(50% + 20px);width:46px;height:6px;margin-left:-23px;background:rgba(0,0,0,.55);display:none;pointer-events:none}
+.digbar i{display:block;height:100%;width:0;background:#ffd24a}
 .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(22,33,58,.5)}
 .overlay.hide{display:none}
 .card{background:#fff;color:var(--ink);border-radius:24px;padding:20px 18px 18px;max-width:440px;width:100%;text-align:center;box-shadow:0 10px 0 var(--ink);border:3px solid var(--ink);max-height:100%;overflow:auto}
@@ -105,6 +118,11 @@ canvas#c{display:block;width:100%;height:100%}
   <canvas id="c"></canvas>
   <div class="flash" id="flash"></div>
   <div class="doom" id="doom"></div>
+  <div class="zap" id="zap"></div>
+  <div class="glitch" id="glitch"></div>
+  <div class="fadeov" id="fadeov"></div>
+  <div class="xhair" id="xhair"></div>
+  <div class="digbar" id="digbar"><i id="digI"></i></div>
   <div class="blackout" id="blackout"><div class="dt" id="deathTitle">ZGINĄŁEŚ</div><div class="ds" id="deathTxt"></div></div>
   <div class="cross" id="cross"></div>
   <div class="hud">
@@ -116,6 +134,8 @@ canvas#c{display:block;width:100%;height:100%}
     <div class="chips">
       <div class="row"><button class="ibtn" id="soundBtn" aria-label="Dźwięk">🔊</button><button class="ibtn" id="pauseBtn" aria-label="Menu">II</button></div>
       <div class="chip" id="rebChip">x1</div>
+      <button class="ibtn" id="rankBtn" style="width:auto" aria-label="Ranking">🏆 #1</button>
+      <div class="chip" id="rankBox" style="display:none;text-align:left;line-height:1.55"></div>
       <div class="chip" id="clock">☀️ Dzień</div>
     </div>
   </div>
@@ -123,7 +143,7 @@ canvas#c{display:block;width:100%;height:100%}
   <div class="mode" id="mode">TRYB BUDOWANIA</div>
   <div class="bossbar" id="bossbar"><small id="bossName">Zbój Zbyszek</small><div class="bb"><i id="bossHp"></i></div></div>
   <div class="hotbar" id="hotbar"></div>
-  <div class="help" id="help">F: uderz · B: buduj · E: crafting · Q: sklep · 1–7: blok<br>Budowanie: klik stawia, prawy klik zabiera</div>
+  <div class="help" id="help">F: uderz (w kopalni: kop) · B: buduj · E: crafting · Q: sklep · 1–7: blok<br>Kopalnia jest na wschodzie · Budowanie: klik stawia, prawy klik zabiera</div>
   <div class="banner" id="banner"><b id="bT"></b><small id="bS"></small></div>
   <div class="tip" id="tip"></div>
   <div class="joy" id="joy"><div class="knob" id="knob"></div></div>
@@ -157,7 +177,7 @@ canvas#c{display:block;width:100%;height:100%}
   </div></div>
   <div class="overlay hide" id="shop"><div class="card">
     <h2>Sklep</h2>
-    <div class="tabs"><button class="tab on" data-t="blocks">Klocki</button><button class="tab" data-t="powers">Moce</button><button class="tab" data-t="food">Jedzenie</button></div>
+    <div class="tabs"><button class="tab on" data-t="blocks">Klocki</button><button class="tab" data-t="powers">Moce</button><button class="tab" data-t="food">Jedzenie</button><button class="tab" data-t="guard">Ochrona</button></div>
     <p id="shopCash" style="margin-bottom:10px"></p>
     <div class="list" id="shopList"></div>
     <div class="btns" style="margin-top:14px"><button class="play alt" id="shopClose">Zamknij (Q)</button></div>
@@ -187,6 +207,12 @@ canvas#c{display:block;width:100%;height:100%}
   }
   const SFX = {
     roar: () => { tone(70, 0.9, 'sawtooth', 0.08, -30); tone(95, 0.9, 'square', 0.04, -40); }, doom: () => { tone(55, 1.4, 'sawtooth', 0.09, -25); setTimeout(() => tone(40, 1.2, 'sine', 0.1, -10), 200); }, stomp: () => tone(60, 0.16, 'sine', 0.09, -25),
+    thunder: () => { tone(60, 1.2, 'sawtooth', 0.09, -30); tone(45, 1.5, 'sine', 0.1, -20); },
+    shot: () => { tone(120, 0.18, 'sawtooth', 0.1, -80); tone(900, 0.05, 'square', 0.05, -600); },
+    glitch: () => { for (let i = 0; i < 7; i++) setTimeout(() => tone(200 + Math.random() * 1400, 0.06, 'square', 0.05), i * 55); },
+    laugh: () => [330, 300, 330, 300, 340].forEach((f, i) => setTimeout(() => tone(f, 0.09, 'square', 0.05, -40), i * 110)),
+    hoof: () => tone(110, 0.05, 'square', 0.04, -50),
+    portal: () => [440, 330, 220].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'triangle', 0.06), i * 70)),
     ching: () => { tone(1568, 0.06, 'square', 0.018); setTimeout(() => tone(2093, 0.08, 'square', 0.015), 40); },
     buy: () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'square', 0.05), i * 70)),
     no: () => tone(180, 0.2, 'sawtooth', 0.04, -60), jump: () => tone(300, 0.12, 'square', 0.03, 260),
@@ -350,7 +376,7 @@ canvas#c{display:block;width:100%;height:100%}
   try { const d = JSON.parse(localStorage.getItem(SAVE) || 'null'); if (d) { S = Object.assign(S, d); S.inv = Object.assign({ drewno: 0, deski: 0, kamien: 0, cegla: 0, szklo: 0, lampa: 0, zloty: 0, mieso: 0, skora: 0, zloto: 0, pieczen: 0 }, d.inv); S.st = Object.assign({ wood: 0, stone: 0, placed: 0, hunted: 0, thieves: 0, crafted: 0 }, d.st); hasSave = true; } } catch (e) {}
   const owned = id => S.owned.includes(id);
   const mult = () => 1 + S.rebirths * 0.5;
-  function save() { S.last = Date.now(); S.blocks = []; blocks.forEach((b, k) => { const [x, y, z] = k.split(',').map(Number); S.blocks.push([b.t, x, y, z]); }); try { localStorage.setItem(SAVE, JSON.stringify(S)); } catch (e) {} }
+  function save() { S.last = Date.now(); try { S.bots = neighbors.map(n => ({ e: n.earned, s: n.stage, c: n.cash })); } catch (e) {} S.blocks = []; blocks.forEach((b, k) => { const [x, y, z] = k.split(',').map(Number); S.blocks.push([b.t, x, y, z]); }); try { localStorage.setItem(SAVE, JSON.stringify(S)); } catch (e) {} }
 
   // ================= FACTORY =================
   const LINES = { A: 0, B: -10 }, BELT_X0 = -17.5, BELT_X1 = 13.4, FURN_X = 15;
@@ -480,7 +506,7 @@ canvas#c{display:block;width:100%;height:100%}
   const acone = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1, 4), arM); acone.rotation.x = Math.PI; arrow.add(acone); box(arrow, 0.4, 0.8, 0.4, arM, 0, 0.9, 0, false);
   function nextTarget() { let best = null; Object.values(buttons).forEach(b => { if (b.isReb) return; if (!best || priceOf(b.it) < priceOf(best.it)) best = b; }); return best || buttons.rebirth || null; }
   function purchase(b) {
-    if (P.dead) return;
+    if (P.dead || P.frozen) return;
     const it = b.it, price = priceOf(it);
     if (S.cash < price) { tip('Brakuje ' + fmtM(price - S.cash)); SFX.no(); return; }
     if (b.isReb) { confirmBox('Odrodzenie?', `Stracisz maszyny i kasę (klocki, przedmioty i moce zostają), ale zarabiasz na zawsze więcej: x${mult() + 0.5}.`, doRebirth); return; }
@@ -567,6 +593,7 @@ canvas#c{display:block;width:100%;height:100%}
     return null;
   }
   function doBuildAt(cx, cy, removeBtn) {
+    if (inMine || P.frozen) return;
     const remove = removeBtn || delMode;
     const c = pickCell(cx, cy, remove); if (!c) return;
     if (remove) { if (!c.rm) return; const t = removeBlock(c.x, c.y, c.z); if (t) { S.inv[t]++; SFX.pick(); burst(c.x + 0.5, c.y + 0.5, c.z + 0.5, 0xffffff, 6, 2, 0.12); updHotbar(); } return; }
@@ -584,11 +611,11 @@ canvas#c{display:block;width:100%;height:100%}
 
   // ================= ENTITIES =================
   const thieves = [], animals = [], villagers = [], guests = [];
-  const entities = () => thieves.concat(animals, villagers, guests);
+  const entities = () => thieves.concat(animals, villagers, guests, guardsList);
   function boxesNear(x, y, z, r, h) {
     const out = [];
     for (const s of solids) if (s.x1 > x - r - 1 && s.x0 < x + r + 1 && s.z1 > z - r - 1 && s.z0 < z + r + 1) out.push(s);
-    for (let i = Math.floor(x - r - 1); i <= Math.floor(x + r + 1); i++) for (let k = Math.floor(z - r - 1); k <= Math.floor(z + r + 1); k++) for (let j = Math.max(0, Math.floor(y - 1)); j <= Math.floor(y + h + 1); j++) if (blocks.has(key(i, j, k))) out.push({ x0: i, x1: i + 1, y0: j, y1: j + 1, z0: k, z1: k + 1, block: true });
+    for (let i = Math.floor(x - r - 1); i <= Math.floor(x + r + 1); i++) for (let k = Math.floor(z - r - 1); k <= Math.floor(z + r + 1); k++) for (let j = Math.max(0, Math.floor(y - 1)); j <= Math.floor(y + h + 1); j++) if (blocks.has(key(i, j, k)) || mineCells.has(key(i, j, k))) out.push({ x0: i, x1: i + 1, y0: j, y1: j + 1, z0: k, z1: k + 1, block: true });
     return out;
   }
   // horizontal-only mover for ground entities
@@ -687,14 +714,15 @@ canvas#c{display:block;width:100%;height:100%}
   function swapTag(o, text, color) { if (o.tag) { o.g.remove(o.tag); o.tag.material.map.dispose(); o.tag.material.dispose(); } o.tag = makeTag(o.g, text, color); }
   function clearBubble(o) { if (o.bubble) { o.g.remove(o.bubble); o.bubble.material.map.dispose(); o.bubble = null; } }
   function makeThief(opts = {}) {
-    const dis = !!opts.disguise, nm = pickName();
-    const g = dis ? humanoid(pickOf(CROWD_COLORS), 0x3a4a6a, pickOf(SKINS)) : humanoid(0x2b2b33, 0x1a1a22, 0xf2c9a0); scene.add(g);
+    const dis = !!opts.disguise, gun = !!opts.gun, nm = pickName();
+    const g = dis ? humanoid(pickOf(CROWD_COLORS), 0x3a4a6a, pickOf(SKINS)) : gun ? humanoid(0xd8b020, 0x2b2b33, 0xf2c9a0) : humanoid(0x2b2b33, 0x1a1a22, 0xf2c9a0); scene.add(g);
     const mask = box(g, 0.58, 0.18, 0.04, STD(0x111111), 0, 1.84, 0.26, false), hat = box(g, 0.6, 0.2, 0.6, STD(0x1a1a22), 0, 2.08, 0);
     mask.visible = hat.visible = !dis;
+    if (gun) { box(g, 0.95, 0.06, 0.95, STD(0x1a1a22), 0, 2.0, 0); const ud = g.userData; ud.swing = true; ud.arms[1].rotation.x = -1.45; ud.arms[0].rotation.x = -1.25; box(ud.arms[1], 0.12, 1.05, 0.12, STD(0x222228), 0, -1.15, 0.12); box(ud.arms[1], 0.15, 0.32, 0.2, STD(0x6b4a2e), 0, -0.55, 0.12); }
     const sack = box(g, 0.6, 0.7, 0.4, STD(0xc8a878), 0, 1.3, -0.4); sack.visible = false;
     const orb = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 8), new THREE.MeshBasicMaterial({ color: 0xb98bff })); orb.position.y = 2.65; orb.visible = false; g.add(orb);
     const a = opts.angle !== undefined ? opts.angle : Math.random() * 6.28, R = 58 + (dis ? Math.random() * 4 : 0); const x = Math.cos(a) * R, z = Math.sin(a) * R;
-    const t = { g, sack, orb, power: null, x, z, r: 0.4, h: 1.95, hp: 3, state: 'go', carry: 0, stuck: 0, lastD: 999, detour: 0, detourDir: 0, atkT: 0, hurtT: 0, dir: 0, walk: 0, disguised: dis, revealed: !dis, parts: [mask, hat], name: nm.n, fem: nm.f, tag: null, sayT: rnd(3, 8), bubble: null, bubbleT: 0 };
+    const t = { g, sack, orb, power: null, x, z, r: 0.4, h: 1.95, hp: gun ? 4 : 3, state: 'go', carry: 0, stuck: 0, lastD: 999, detour: 0, detourDir: 0, atkT: 0, hurtT: 0, dir: 0, walk: 0, disguised: dis, revealed: !dis, parts: [mask, hat], name: nm.n, fem: nm.f, tag: null, sayT: rnd(3, 8), bubble: null, bubbleT: 0, gun, shootT: rnd(1, 2) };
     if (dis) t.tag = makeTag(g, nm.n, '#ffffff'); else burst(x, 1, z, 0x333333, 10, 3);
     thieves.push(t); return t;
   }
@@ -730,7 +758,7 @@ canvas#c{display:block;width:100%;height:100%}
   function breakBlockNear(t, ux, uz) {
     const cells = []; const fx = Math.floor(t.x + ux * (t.r + 0.6)), fz = Math.floor(t.z + uz * (t.r + 0.6));
     [[fx, fz], [Math.floor(t.x + ux * (t.r + 0.6) + 0.5), fz], [fx, Math.floor(t.z + uz * (t.r + 0.6) + 0.5)]].forEach(([x, z]) => { for (let y = 0; y < 3; y++) cells.push([x, y, z]); });
-    for (const [x, y, z] of cells) { const b = blocks.get(key(x, y, z)); if (b && b.t !== 'zloty') { removeBlock(x, y, z); SFX.stone(); burst(x + 0.5, y + 0.5, z + 0.5, 0x9aa0aa, 10, 4, 0.18); if (!t.warned) { t.warned = true; tip('Zbyszek rozwala twój mur!'); } return true; } }
+    for (const [x, y, z] of cells) { const b = blocks.get(key(x, y, z)); if (b && b.t !== 'zloty') { removeBlock(x, y, z); SFX.stone(); burst(x + 0.5, y + 0.5, z + 0.5, 0x9aa0aa, 10, 4, 0.18); if (!t.warned) { t.warned = true; tip('Ktoś rozwala twój mur!'); } return true; } }
     moveGround(t, -uz * 1.2, ux * 1.2); return false;
   }
   function updateRival(t, dt, night) {
@@ -874,6 +902,7 @@ canvas#c{display:block;width:100%;height:100%}
   }
   let thiefT = 6, wasNight = false;
   function updateThieves(dt, night) {
+    night = night || storm.on;
     if (night) { thiefT -= dt; const rivalOn = thieves.some(x => x.rival); const cap = rivalOn ? 2 : 2 + Math.min(6, Math.floor(S.owned.length / 5) + S.rebirths); if (thiefT <= 0 && thieves.length < cap) { makeThief(); thiefT = rnd(9, 15); } }
     for (let i = thieves.length - 1; i >= 0; i--) {
       const t = thieves[i]; if (t.rival) { updateRival(t, dt, night); continue; } t.atkT -= dt; t.hurtT -= dt; if (t.orb) t.orb.position.y = 2.65 + Math.sin(T * 5) * 0.1;
@@ -888,10 +917,15 @@ canvas#c{display:block;width:100%;height:100%}
       if (t.state === 'flee') { const R = Math.hypot(t.x, t.z) || 1; tx = t.x / R * 80; tz = t.z / R * 80; if (R > 62) { removeThief(t); if (t.carry) tip('Rabuś uciekł z ' + fmtM(t.carry) + '!'); if (t.power) { S.rival = S.rival || { powers: [], level: 0 }; S.rival.powers.push(t.power); banner('Uciekł z twoją mocą!', 'Wróci następnej nocy jako Zbój Zbyszek. Szykuj się na pojedynek!', 3500); save(); } continue; } }
       else if (pd < 7 && P.y < 2.5 && t.revealed) { tx = P.x; tz = P.z; t.state = 'chase'; }
       else { t.state = 'go'; tx = FURN_X - 2.5; tz = 0; }
+      let spMul = 1;
+      if (t.gun && t.state !== 'flee') {
+        if (pd < 17 && P.y < 5 && !inMine) { t.state = 'aim'; tx = P.x; tz = P.z; if (pd < 11) spMul = 0.01; t.shootT -= dt; if (t.shootT <= 0 && pd < 16) { t.shootT = rnd(1.6, 2.4); gunShoot(t); } }
+        else if (t.state === 'aim') t.state = 'go';
+      }
       const dx = tx - t.x, dz = tz - t.z, d = Math.hypot(dx, dz) || 1;
       let dir = Math.atan2(dx, dz);
       if (t.detour > 0) { t.detour -= dt; dir += t.detourDir; }
-      const sp = t.state === 'flee' ? 6.5 : (t.revealed ? 4.2 : 3.2);
+      const sp = (t.state === 'flee' ? 6.5 : (t.revealed ? 4.2 : 3.2)) * spMul;
       const blocked = moveGround(t, Math.sin(dir) * sp * dt, Math.cos(dir) * sp * dt);
       if (blocked && t.detour <= 0) { t.stuck += dt; if (t.stuck > 0.6) { t.detour = rnd(0.8, 1.8); t.detourDir = (Math.random() < 0.5 ? 1 : -1) * rnd(1.2, 1.9); t.stuck = 0; } } else t.stuck = Math.max(0, t.stuck - dt);
       t.g.position.set(t.x, t.hurtT > 0 ? 0.15 : 0, t.z); t.g.rotation.y = dir; animWalk(t.g, sp, dt, false);
@@ -900,6 +934,399 @@ canvas#c{display:block;width:100%;height:100%}
         t.state = 'flee';
       }
       if (t.state === 'chase' && pd < 1.4 && t.atkT <= 0 && P.y < 2) { t.atkT = 1.1; hurtPlayer(1); if (Math.random() < 0.35) stealPower(t); }
+    }
+  }
+
+  // ================= WEATHER, GUARDS, NEIGHBORS, MINE, RAID =================
+  let inMine = false, mineHold = false, mpitch = 0.15, mined = 0, mineTarget = null, mineProg = 0, mineSndT = 0, mineHit = null, mineBusy = false;
+  let raid = null; const raiders = [];
+  const storm = { on: false, k: 0, wait: 150, dur: 0, t: 0, bolt: 0, flash: 0, thunder: -1, gunT: 6 };
+
+  // ---- storm: rain, lightning, shotgun bandits ----
+  const rainN = 700, rainBase = new Float32Array(rainN * 3), rainArr = new Float32Array(rainN * 6);
+  for (let i = 0; i < rainN; i++) { rainBase[i * 3] = rnd(-35, 35); rainBase[i * 3 + 1] = rnd(0, 32); rainBase[i * 3 + 2] = rnd(-35, 35); }
+  const rainG = new THREE.BufferGeometry(); rainG.setAttribute('position', new THREE.BufferAttribute(rainArr, 3));
+  const rain = new THREE.LineSegments(rainG, new THREE.LineBasicMaterial({ color: 0xbfd8ff, transparent: true, opacity: 0.5 })); rain.frustumCulled = false; rain.visible = false; scene.add(rain);
+  function rainStep(dt) {
+    for (let i = 0; i < rainN; i++) {
+      let y = rainBase[i * 3 + 1] - 36 * dt;
+      if (y < 0) { y += 32; rainBase[i * 3] = rnd(-35, 35); rainBase[i * 3 + 2] = rnd(-35, 35); }
+      rainBase[i * 3 + 1] = y; const x = rainBase[i * 3], z = rainBase[i * 3 + 2];
+      rainArr[i * 6] = x; rainArr[i * 6 + 1] = y; rainArr[i * 6 + 2] = z; rainArr[i * 6 + 3] = x - 0.18; rainArr[i * 6 + 4] = y - 1.2; rainArr[i * 6 + 5] = z;
+    }
+    rainG.attributes.position.needsUpdate = true;
+  }
+  let boltMesh = null; const boltM = new THREE.LineBasicMaterial({ color: 0xf4f8ff });
+  function lightning() {
+    const a = rnd(0, 6.28), rr = rnd(25, 70); let cx = P.x + Math.cos(a) * rr, cz = P.z + Math.sin(a) * rr; const pts = [];
+    for (let y = 60; y > 0; y -= 6) { pts.push(new THREE.Vector3(cx, y, cz)); cx += rnd(-3, 3); cz += rnd(-3, 3); } pts.push(new THREE.Vector3(cx, 0, cz));
+    if (boltMesh) { scene.remove(boltMesh); boltMesh.geometry.dispose(); }
+    boltMesh = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), boltM); scene.add(boltMesh);
+    storm.bolt = 0.2; storm.flash = 0.9; storm.thunder = 0.25 + rr * 0.012;
+  }
+  function startStorm() { storm.on = true; storm.dur = rnd(60, 90); storm.t = 0; storm.gunT = 4; banner('Nadciąga burza!', 'W burzy chodzą rabusie ze strzelbami!', 4000); SFX.thunder(); }
+  function endStorm() { storm.on = false; storm.wait = rnd(160, 280); thieves.forEach(t => { if (t.gun) t.state = 'flee'; }); banner('Burza ucichła', 'Strzelcy uciekają'); }
+  function makeGunman() { const t = makeThief({ gun: true }); swapTag(t, 'Strzelec', '#ffd24a'); return t; }
+  function stormStep(dt) {
+    if (storm.on) { storm.t += dt; if (storm.t > storm.dur) endStorm(); }
+    else { storm.wait -= dt; if (storm.wait <= 0 && S.owned.length >= 4 && !raid && !rage && !inMine && !P.dead) startStorm(); }
+    storm.k += ((storm.on ? 1 : 0) - storm.k) * Math.min(1, dt * 0.7);
+    if (storm.on) {
+      if (Math.random() < dt * 0.2) lightning();
+      storm.gunT -= dt;
+      if (storm.gunT <= 0) { storm.gunT = rnd(8, 13); const cap = 2 + Math.min(3, Math.floor(S.owned.length / 6)); if (thieves.filter(t => t.gun).length < cap) makeGunman(); }
+    }
+    storm.bolt -= dt; if (storm.bolt <= 0 && boltMesh) { scene.remove(boltMesh); boltMesh.geometry.dispose(); boltMesh = null; }
+    storm.flash = Math.max(0, storm.flash - dt * 3); $('zap').style.opacity = storm.flash.toFixed(2);
+    if (storm.thunder > 0) { storm.thunder -= dt; if (storm.thunder <= 0) { SFX.thunder(); storm.thunder = -1; } }
+  }
+  const bullets = [];
+  function gunShoot(t) {
+    SFX.shot();
+    const ox = t.x + Math.sin(t.g.rotation.y) * 0.8, oz = t.z + Math.cos(t.g.rotation.y) * 0.8, oy = 1.5;
+    burst(ox, oy, oz, 0xffe066, 5, 4, 0.18, 0);
+    for (let k = 0; k < 3; k++) {
+      const dx = P.x - ox + rnd(-1.2, 1.2), dy = (P.y + 1.1) - oy + rnd(-0.6, 0.6), dz = P.z - oz + rnd(-1.2, 1.2), d = Math.hypot(dx, dy, dz) || 1;
+      const m = new THREE.Mesh(pGeo, new THREE.MeshBasicMaterial({ color: 0xffd84a })); m.scale.set(0.12, 0.12, 0.5); m.position.set(ox, oy, oz); scene.add(m); m.lookAt(ox + dx, oy + dy, oz + dz);
+      bullets.push({ m, vx: dx / d * 26, vy: dy / d * 26, vz: dz / d * 26, life: 1.4 });
+    }
+  }
+  function bulletsStep(dt) {
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const b = bullets[i]; b.life -= dt; let dead = b.life <= 0;
+      for (let st = 0; st < 3 && !dead; st++) {
+        const q = b.m.position; q.x += b.vx * dt / 3; q.y += b.vy * dt / 3; q.z += b.vz * dt / 3;
+        if (q.y < 0) dead = true;
+        else if (blocks.has(key(Math.floor(q.x), Math.floor(q.y), Math.floor(q.z))) || solids.some(sl => q.x > sl.x0 && q.x < sl.x1 && q.y > sl.y0 && q.y < sl.y1 && q.z > sl.z0 && q.z < sl.z1)) dead = true;
+        else if (!P.dead && !inMine && Math.abs(q.x - P.x) < 0.55 && Math.abs(q.z - P.z) < 0.55 && q.y > P.y && q.y < P.y + 1.95) { hurtPlayer(1); dead = true; }
+      }
+      if (dead) { scene.remove(b.m); b.m.material.dispose(); bullets.splice(i, 1); }
+    }
+  }
+
+  // ---- bodyguards (hired for one day) ----
+  const guardsList = []; let guardsOut = false;
+  const POSTS = [[10, 4.2], [10, -4.8], [10, -14.5], [0, 17.5], [-12, 8]];
+  function makeGuard(i) {
+    const post = POSTS[i % POSTS.length], g = humanoid(0x2f5fd0, 0x1a2a4a, pickOf(SKINS)); scene.add(g);
+    box(g, 0.64, 0.24, 0.64, STD(0xc8d8ff), 0, 2.1, 0); box(g, 0.2, 0.3, 0.1, STD(0xffc93c), 0, 2.2, 0.33);
+    const u = g.userData; box(u.arms[1], 0.1, 0.18, 1.1, STD(0xdfe6f0, { metalness: 0.6, roughness: 0.3 }), 0, -0.72, 0.7); box(u.arms[1], 0.1, 0.26, 0.12, STD(0x6b4a2e), 0, -0.72, 0.15);
+    const gd = { guard: true, g, x: post[0], z: post[1], r: 0.4, h: 1.95, post, atkT: 0, bubble: null, bubbleT: 0, tag: null, name: 'Ochroniarz', warned: false };
+    gd.tag = makeTag(g, 'Ochroniarz', '#7fd3ff'); g.position.set(gd.x, 0, gd.z); g.rotation.y = Math.PI / 2; guardsList.push(gd); burst(gd.x, 1.5, gd.z, 0x7fd3ff, 12, 3); return gd;
+  }
+  function hireGuard() { S.guards = (S.guards || 0) + 1; SFX.buy(); if (guardsOut) makeGuard(guardsList.length); else tip('Ochroniarz stanie na posterunku o zmierzchu'); }
+  function spawnGuards() { if (guardsOut) return; guardsOut = true; for (let i = 0; i < (S.guards || 0); i++) makeGuard(i); if ((S.guards || 0) > 0) banner('Zmierzch', 'Ochroniarze (' + S.guards + ') zajęli posterunki', 2800); }
+  function despawnGuards() {
+    if (!guardsOut) return; guardsList.forEach(gd => scene.remove(gd.g)); guardsList.length = 0; guardsOut = false;
+    if ((S.guards || 0) > 0) { S.guards = 0; tip('Ochroniarze kończą zmianę. Zatrudnij ich ponownie w sklepie (Q)'); }
+  }
+  function guardHit(gd, t) {
+    const u = gd.g.userData; u.swing = true; u.arms[1].rotation.x = -1.6; setTimeout(() => { u.arms[1].rotation.x = 0; u.swing = false; }, 220);
+    SFX.stone(); t.hp -= 2; t.hurtT = 0.3; burst(t.x, 1.6, t.z, 0xffe066, 8, 3, 0.15);
+    if (t.hp <= 0) {
+      if (t.power) { S.pw[t.power] = true; applyGear(); }
+      if (t.carry) { earn(t.carry); popText(t.x, 3, t.z, 'Odzyskane ' + fmtM(t.carry), '#7CFFB2', 1); }
+      popText(t.x, 4, t.z, 'Ochroniarz rozwalił rabusia!', '#7fd3ff', 0.9); S.st.guardKills = (S.st.guardKills || 0) + 1; SFX.poof(); burst(t.x, 1.2, t.z, 0x333333, 22, 5, 0.25, 4); removeThief(t);
+    }
+  }
+  function updateGuards(dt) {
+    for (const gd of guardsList) {
+      gd.atkT -= dt; gd.bubbleT -= dt; if (gd.bubble && gd.bubbleT <= 0) clearBubble(gd);
+      let tgt = null, bd = 10;
+      for (const t of thieves) { if (t.rival || !t.revealed || t.state === 'flee' && !t.carry) continue; const d = Math.hypot(t.x - gd.x, t.z - gd.z); if (d < bd) { bd = d; tgt = t; } }
+      if (raid) { tgt = null; if (!gd.warned) { gd.warned = true; say(gd, 'To nie nasza liga!', 3.6); } }
+      let tx = gd.post[0], tz = gd.post[1], sp = 5.5;
+      if (tgt) { tx = tgt.x; tz = tgt.z; sp = 8.5; if (bd < 1.9 && gd.atkT <= 0) { gd.atkT = 0.7; guardHit(gd, tgt); } }
+      const dx = tx - gd.x, dz = tz - gd.z, d = Math.hypot(dx, dz);
+      const moving = d > (tgt ? 1.4 : 0.3);
+      if (moving) { moveGround(gd, dx / d * sp * dt, dz / d * sp * dt); gd.g.rotation.y = Math.atan2(dx, dz); } else if (tgt) gd.g.rotation.y = Math.atan2(dx, dz);
+      animWalk(gd.g, moving ? sp : 0, dt, false); gd.g.position.set(gd.x, 0, gd.z);
+    }
+  }
+
+  // ---- neighbour bots: their own factories and a ranking ----
+  const NEIGH = [
+    { name: 'Krysia Corp', owner: 'Krysia', col: 0xff9a3c, x: -70, z: -26, k: 0.8, skin: 0xf2c9a0, shirt: 0xff9a3c },
+    { name: 'Staszek Inc.', owner: 'Staszek', col: 0x4f9dff, x: 70, z: -34, k: 1.0, skin: 0xc68a5a, shirt: 0x4f9dff },
+    { name: 'Lucjan Ltd.', owner: 'Lucjan', col: 0x9b6bff, x: 52, z: 58, k: 1.3, skin: 0xffd34d, shirt: 0x9b6bff }
+  ];
+  const BOT_RATE = [0.7, 1.8, 4, 9, 20, 45, 100, 220, 480, 1000, 2200, 4800, 10500, 23000, 50000, 110000];
+  const BOT_COST = [15, 60, 200, 600, 1500, 4000, 10000, 25000, 60000, 150000, 350000, 800000, 2000000, 5000000, 12000000];
+  const neighbors = [];
+  function clearArea(x, z, rad) {
+    for (let i = trees.length - 1; i >= 0; i--) { const t = trees[i]; if (Math.hypot(t.x - x, t.z - z) < rad) { scene.remove(t.g); const si = solids.indexOf(t.sol); if (si >= 0) solids.splice(si, 1); trees.splice(i, 1); } }
+    for (let i = rocks.length - 1; i >= 0; i--) { const rk = rocks[i]; if (Math.hypot(rk.x - x, rk.z - z) < rad) { scene.remove(rk.m); const si = solids.indexOf(rk.sol); if (si >= 0) solids.splice(si, 1); rocks.splice(i, 1); } }
+  }
+  function makeNeighbor(cfg) {
+    const g = new THREE.Group(); g.position.set(cfg.x, 0, cfg.z); scene.add(g);
+    box(g, 22, 0.14, 16, STD(0xdfe3ec, { map: studTx(22, 16) }), 0, 0.07, 0, false);
+    [[0, 8.2, 22.5, 0.5], [0, -8.2, 22.5, 0.5], [11.2, 0, 0.5, 16.5], [-11.2, 0, 0.5, 16.5]].forEach(([x, z, w, d]) => box(g, w, 0.9, d, STD(cfg.col), x, 0.45, z));
+    box(g, 16, 0.8, 1.5, STD(0x5a6378), -2.5, 0.4, 0); box(g, 16, 0.12, 1.8, STD(0x2b2f3a), -2.5, 0.86, 0);
+    box(g, 2.6, 2.8, 3, STD(0x4a4f5e), 7, 1.4, 0); box(g, 2.9, 0.3, 3.3, STD(cfg.col), 7, 2.95, 0); box(g, 0.7, 2.4, 0.7, STD(0x3a3e4a), 7.4, 4.1, 0.7);
+    addSolid(cfg.x - 2.5, 0, cfg.z, 16, 1.0, 1.9, 'nb'); addSolid(cfg.x + 7, 0, cfg.z, 2.6, 3, 3, 'nb');
+    const drops = [], gates = [], dcol = [0x9aa3b5, 0x4f9dff, 0x3ddc84, 0xffc93c, 0xc56bff];
+    for (let k = 0; k < 5; k++) { const d = new THREE.Group(); d.position.set(-9.5 + k * 3.1, 0, 0); g.add(d); box(d, 0.25, 4.2, 0.25, STD(0x5a6378), 0, 2.1, 1.3); box(d, 0.25, 4.2, 0.25, STD(0x5a6378), 0, 2.1, -1.3); box(d, 0.3, 0.3, 2.9, STD(0x5a6378), 0, 4.2, 0); box(d, 1.4, 1.1, 1.4, STD(dcol[k], { metalness: k > 2 ? 0.4 : 0 }), 0, 3.8, 0); d.visible = false; drops.push(d); }
+    for (let k = 0; k < 3; k++) { const gt = new THREE.Group(); gt.position.set(-5.5 + k * 3.4, 0, 0); g.add(gt); box(gt, 0.5, 3.2, 0.5, STD(0xf3f6fb), 0, 1.6, 1.4); box(gt, 0.5, 3.2, 0.5, STD(0xf3f6fb), 0, 1.6, -1.4); box(gt, 0.7, 0.5, 3.4, STD(cfg.col), 0, 3.3, 0); gt.visible = false; gates.push(gt); }
+    const sc = document.createElement('canvas'); sc.width = 512; sc.height = 256; const tex = new THREE.CanvasTexture(sc);
+    const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })); sign.scale.set(8, 4, 1); sign.position.set(0, 7.5, 7.6); g.add(sign);
+    const og = humanoid(cfg.shirt, 0x3a3a50, cfg.skin); scene.add(og); makeTag(og, cfg.owner, '#ffffff');
+    const n = { cfg, g, drops, gates, signC: sc, signTex: tex, stage: 0, cash: 30, earned: 0, rate: 0, signT: 0, seed: Math.random() * 6, owner: { g: og, x: cfg.x - 4, z: cfg.z + 4, r: 0.4, h: 1.95, tx: cfg.x - 4, tz: cfg.z + 4, t: 0 } };
+    neighbors.push(n); clearArea(cfg.x, cfg.z, 17); return n;
+  }
+  function applyStage(n) { const dr = Math.min(5, 1 + Math.floor(n.stage / 2)), gt = Math.max(0, Math.min(3, Math.floor((n.stage - 1) / 3))); n.drops.forEach((d, i) => d.visible = i < dr); n.gates.forEach((d, i) => d.visible = i < gt); }
+  function drawSign(n) {
+    const c = n.signC, x = c.getContext('2d'); x.clearRect(0, 0, 512, 256);
+    x.fillStyle = '#16213a'; x.strokeStyle = '#' + n.cfg.col.toString(16).padStart(6, '0'); x.lineWidth = 12; const r0 = 36;
+    x.beginPath(); x.moveTo(r0, 8); x.arcTo(504, 8, 504, 248, r0); x.arcTo(504, 248, 8, 248, r0); x.arcTo(8, 248, 8, 8, r0); x.arcTo(8, 8, 504, 8, r0); x.closePath(); x.fill(); x.stroke();
+    x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#ffffff'; x.font = '58px "Lilita One", sans-serif'; x.fillText(n.cfg.name, 256, 82);
+    x.fillStyle = '#7CFFB2'; x.font = '74px "Lilita One", sans-serif'; x.fillText(fmtM(n.earned), 256, 160); x.fillStyle = '#9fb4d8'; x.font = '34px "Nunito", sans-serif'; x.fillText('+' + fmtM(n.rate) + '/s', 256, 214);
+    n.signTex.needsUpdate = true;
+  }
+  let rankT = 0, lastRank = 0;
+  function updRank() {
+    const list = neighbors.map(n => ({ name: n.cfg.name, v: n.earned })); list.push({ name: 'Ty', v: S.earned, you: true }); list.sort((a, b) => b.v - a.v);
+    const pos = list.findIndex(x => x.you) + 1;
+    $('rankBtn').textContent = '🏆 #' + pos;
+    $('rankBox').innerHTML = list.map((x, i) => (i + 1) + '. ' + (x.you ? '<b>Ty</b>' : x.name) + ' · ' + fmtM(x.v)).join('<br>');
+    if (lastRank && state === 'play') { if (pos > lastRank) tip(list[pos - 2].name + ' wyprzedza cię w rankingu!'); else if (pos < lastRank) tip('Wyprzedzasz: ' + list[pos].name + '!'); }
+    lastRank = pos; return list;
+  }
+  function updateNeighbors(dt) {
+    for (const n of neighbors) {
+      n.rate = BOT_RATE[n.stage] * n.cfg.k * (0.9 + 0.2 * Math.sin(T * 0.15 + n.seed));
+      n.cash += n.rate * dt; n.earned += n.rate * dt;
+      if (n.stage < BOT_RATE.length - 1 && n.cash >= BOT_COST[n.stage]) { n.cash -= BOT_COST[n.stage]; n.stage++; applyStage(n); burst(n.cfg.x, 4, n.cfg.z, n.cfg.col, 14, 5); }
+      n.signT -= dt; if (n.signT <= 0) { n.signT = 1; drawSign(n); }
+      const o = n.owner; o.t -= dt;
+      if (o.t <= 0) { o.t = rnd(3, 7); o.tx = n.cfg.x + rnd(-9, 9); o.tz = n.cfg.z + (Math.random() < 0.5 ? 1 : -1) * rnd(2.8, 6.5); }
+      const dx = o.tx - o.x, dz = o.tz - o.z, d = Math.hypot(dx, dz);
+      if (d > 0.5) { if (moveGround(o, dx / d * 2.2 * dt, dz / d * 2.2 * dt)) o.t = 0; o.g.rotation.y = Math.atan2(dx, dz); animWalk(o.g, 2.2, dt, false); } else animWalk(o.g, 0, dt, false);
+      o.g.position.set(o.x, 0, o.z);
+    }
+    rankT -= dt; if (rankT <= 0) { rankT = 1; updRank(); }
+  }
+  NEIGH.forEach(c => makeNeighbor(c));
+  neighbors.forEach((n, i) => { const b = (S.bots || [])[i]; if (b) { n.earned = b.e; n.stage = Math.min(b.s, BOT_RATE.length - 1); n.cash = b.c; } applyStage(n); drawSign(n); });
+  $('rankBtn').onclick = () => { const b = $('rankBox'); b.style.display = b.style.display === 'none' ? 'block' : 'none'; };
+
+  // ---- the mine: separate underground area, digging gold pays cash ----
+  const MINE = { ox: 480, oz: -17, W: 34, D: 34, H: 6, cx: 3.5, cz: 16.5 };
+  const ENTR = { x: 32, z: -12 };
+  const mineCells = new Map(), mineInst = {};
+  const MCOL = { 1: 0x7a7c82, 2: 0x2a2a2e, 3: 0xd2a07a, 4: 0xffd84a, 5: 0x5ee8dc, 9: 0x303036 };
+  const MHARD = { 1: 0.45, 2: 0.6, 3: 0.9, 4: 1.2, 5: 1.8 };
+  const DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+  const _m4 = new THREE.Matrix4(), mineGeo = new THREE.BoxGeometry(1, 1, 1);
+  function oreTexture(col) {
+    const spots = Array.from({ length: 7 }, () => [1 + Math.floor(Math.random() * 13), 1 + Math.floor(Math.random() * 13)]);
+    return pix((i, j) => { for (const [sx, sy] of spots) { const dx = i - sx, dy = j - sy; if (dx >= 0 && dx < 2 && dy >= 0 && dy < 2) return sh(col[0], col[1], col[2], 0.9 + Math.random() * 0.25); } return sh(118, 120, 126, 0.8 + Math.random() * 0.35); });
+  }
+  [[1, 5200, null], [2, 1200, [34, 34, 38]], [3, 1000, [214, 160, 120]], [4, 800, [255, 216, 74]], [5, 400, [94, 232, 220]], [9, 1900, 'bed']].forEach(([t, cap, col]) => {
+    const tex = col === null ? pix(() => sh(120, 122, 128, 0.75 + Math.random() * 0.4)) : col === 'bed' ? pix(() => sh(52, 52, 58, 0.7 + Math.random() * 0.5)) : oreTexture(col);
+    const m = new THREE.MeshLambertMaterial({ map: tex, emissive: t === 4 ? 0x6a5200 : t === 5 ? 0x0a6a62 : 0x000000 });
+    const mesh = new THREE.InstancedMesh(mineGeo, m, cap); mesh.count = 0; mesh.frustumCulled = false; scene.add(mesh);
+    mineInst[t] = { mesh, ids: new Map(), keys: [] };
+  });
+  const mineFloor = new THREE.Mesh(new THREE.PlaneGeometry(MINE.W, MINE.D), new THREE.MeshLambertMaterial({ color: 0x4a4a52 }));
+  mineFloor.rotation.x = -Math.PI / 2; mineFloor.position.set(MINE.ox + MINE.W / 2, 0.03, MINE.oz + MINE.D / 2); scene.add(mineFloor);
+  const exitPad = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.12, 24), new THREE.MeshBasicMaterial({ color: 0x4fe0ff })); exitPad.position.set(MINE.ox + MINE.cx, 0.1, MINE.oz + MINE.cz); scene.add(exitPad);
+  const exitSign = textSprite('WYJŚCIE', '#7fe8ff', 44); exitSign.position.set(MINE.ox + MINE.cx, 2.4, MINE.oz + MINE.cz); scene.add(exitSign);
+  const mineLight = new THREE.PointLight(0xffd9a0, 0, 28, 1.5); scene.add(mineLight);
+  const mineSel = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.01, 1.01, 1.01)), new THREE.LineBasicMaterial({ color: 0xffffff })); mineSel.visible = false; scene.add(mineSel);
+  function instAdd(type, x, y, z) {
+    const I = mineInst[type], k = key(x, y, z); if (!I || I.ids.has(k) || I.keys.length >= I.cap_) return;
+    const idx = I.keys.length; I.keys.push(k); I.ids.set(k, idx);
+    _m4.makeTranslation(x + 0.5, y + 0.5, z + 0.5); I.mesh.setMatrixAt(idx, _m4); I.mesh.count = I.keys.length; I.mesh.instanceMatrix.needsUpdate = true;
+  }
+  function instRemove(type, x, y, z) {
+    const I = mineInst[type], k = key(x, y, z), idx = I.ids.get(k); if (idx === undefined) return;
+    const last = I.keys.length - 1, lk = I.keys[last];
+    if (idx !== last) { const q = lk.split(',').map(Number); _m4.makeTranslation(q[0] + 0.5, q[1] + 0.5, q[2] + 0.5); I.mesh.setMatrixAt(idx, _m4); I.keys[idx] = lk; I.ids.set(lk, idx); }
+    I.keys.pop(); I.ids.delete(k); I.mesh.count = I.keys.length; I.mesh.instanceMatrix.needsUpdate = true;
+  }
+  Object.keys(mineInst).forEach(t => { mineInst[t].cap_ = { 1: 5200, 2: 1200, 3: 1000, 4: 800, 5: 400, 9: 1900 }[t]; });
+  const inMineGrid = (x, y, z) => x >= MINE.ox && x < MINE.ox + MINE.W && z >= MINE.oz && z < MINE.oz + MINE.D && y >= 0 && y < MINE.H;
+  function mineExposed(x, y, z) { for (const [a, b, c] of DIRS) { const nx = x + a, ny = y + b, nz = z + c; if (inMineGrid(nx, ny, nz) && !mineCells.has(key(nx, ny, nz))) return true; } return false; }
+  function genMine() {
+    for (const t in mineInst) { const I = mineInst[t]; I.keys.length = 0; I.ids.clear(); I.mesh.count = 0; I.mesh.instanceMatrix.needsUpdate = true; }
+    mineCells.clear(); mined = 0;
+    for (let lx = 0; lx < MINE.W; lx++) for (let lz = 0; lz < MINE.D; lz++) for (let y = 0; y < MINE.H; y++) {
+      let t = 1; const edge = lx === 0 || lz === 0 || lx === MINE.W - 1 || lz === MINE.D - 1 || y === MINE.H - 1;
+      if (edge) t = 9; else { const far = lx / MINE.W, q = Math.random(); if (q < 0.010 + far * 0.012) t = 5; else if (q < 0.04 + far * 0.03) t = 4; else if (q < 0.11 + far * 0.04) t = 3; else if (q < 0.22) t = 2; }
+      mineCells.set(key(MINE.ox + lx, y, MINE.oz + lz), t);
+    }
+    for (let x = 2; x <= 8; x++) for (let z = 14; z <= 19; z++) for (let y = 0; y <= 3; y++) mineCells.delete(key(MINE.ox + x, y, MINE.oz + z));
+    for (let i = 0; i < 7; i++) {
+      const cx = 10 + Math.floor(Math.random() * 20), cy = 1 + Math.floor(Math.random() * 3), cz = 3 + Math.floor(Math.random() * 28);
+      for (let x = -2; x <= 2; x++) for (let y = -2; y <= 2; y++) for (let z = -2; z <= 2; z++) if (x * x + y * y + z * z <= 4.5) { const k = key(MINE.ox + cx + x, cy + y, MINE.oz + cz + z), t = mineCells.get(k); if (t !== undefined && t !== 9) mineCells.delete(k); }
+    }
+    mineCells.forEach((t, k) => { const q = k.split(',').map(Number); if (mineExposed(q[0], q[1], q[2])) instAdd(t, q[0], q[1], q[2]); });
+  }
+  function mineRay(maxD) {
+    const cp = Math.cos(mpitch), dx = -Math.sin(yaw) * cp, dy = -Math.sin(mpitch), dz = -Math.cos(yaw) * cp, ox = P.x, oy = P.y + 1.62, oz = P.z;
+    let x = Math.floor(ox), y = Math.floor(oy), z = Math.floor(oz);
+    const sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1, tdx = Math.abs(1 / dx), tdy = Math.abs(1 / dy), tdz = Math.abs(1 / dz);
+    let tmx = dx ? (dx > 0 ? x + 1 - ox : ox - x) * tdx : Infinity, tmy = dy ? (dy > 0 ? y + 1 - oy : oy - y) * tdy : Infinity, tmz = dz ? (dz > 0 ? z + 1 - oz : oz - z) * tdz : Infinity, t = 0;
+    for (let i = 0; i < 40 && t <= maxD; i++) {
+      const k = key(x, y, z), type = mineCells.get(k); if (type !== undefined) return { x, y, z, k, type, t };
+      if (tmx < tmy && tmx < tmz) { x += sx; t = tmx; tmx += tdx; } else if (tmy < tmz) { y += sy; t = tmy; tmy += tdy; } else { z += sz; t = tmz; tmz += tdz; }
+    }
+    return null;
+  }
+  const MINE_NAME = { 1: 'Kamień', 2: 'Węgiel', 3: 'Żelazo', 4: 'Złoto', 5: 'Klejnot' };
+  function digCell(h) {
+    const t = h.type; mineCells.delete(h.k); instRemove(t, h.x, h.y, h.z); mined++; S.st.mined = (S.st.mined || 0) + 1;
+    burst(h.x + 0.5, h.y + 0.5, h.z + 0.5, MCOL[t], 12, 4, 0.16, 12); SFX.stone();
+    for (const [a, b, c] of DIRS) { const nx = h.x + a, ny = h.y + b, nz = h.z + c, nt = mineCells.get(key(nx, ny, nz)); if (nt !== undefined) instAdd(nt, nx, ny, nz); }
+    if (t === 1) { if (Math.random() < 0.6) S.inv.kamien++; return; }
+    const sc = Math.max(1, Math.sqrt(incomeRate)) * mult(), v = Math.round({ 2: 4, 3: 12, 4: 40, 5: 150 }[t] * sc);
+    earn(v); popText(h.x + 0.5, h.y + 1.3, h.z + 0.5, '+' + fmtM(v), t >= 4 ? '#ffe066' : '#bfe6ff', t >= 4 ? 1.3 : 0.9);
+    if (t === 4) { S.inv.zloto++; S.st.gold = (S.st.gold || 0) + 1; SFX.gold(); tip('Złoto! +' + fmtM(v)); }
+    else if (t === 5) { S.inv.zloto += 2; SFX.gold(); banner('Klejnot!', '+' + fmtM(v), 1800); }
+    else SFX.ching();
+  }
+  function fadeBlink(cb) { const f = $('fadeov'); f.style.opacity = 1; setTimeout(() => { cb(); setTimeout(() => { f.style.opacity = 0; }, 80); }, 260); }
+  function enterMine() {
+    if (inMine || mineBusy || P.dead || P.frozen) return;
+    if (raid) { tip('Zbliżają się bandyci! Nie schodź teraz do kopalni'); return; }
+    mineBusy = true; SFX.portal();
+    fadeBlink(() => {
+      if (mined > 700 || mineCells.size === 0) genMine();
+      if (building) toggleBuild();
+      inMine = true; P.x = MINE.ox + 5.5; P.z = MINE.oz + 16.5; P.y = 0; P.vx = P.vz = P.vy = 0; yaw = -Math.PI / 2; mpitch = 0.15;
+      $('xhair').style.display = 'block'; mineBusy = false;
+      banner('Kopalnia', isTouch ? 'Przytrzymaj Uderz, żeby kopać. Złoto to kasa!' : 'Przytrzymaj F, żeby kopać (przeciągnij, żeby się rozglądać). Złoto to kasa!', 4200);
+    });
+  }
+  function leaveMine() {
+    if (!inMine || mineBusy) return; mineBusy = true; SFX.portal();
+    fadeBlink(() => {
+      inMine = false; P.x = ENTR.x; P.z = ENTR.z + 4.5; P.y = 0; P.vx = P.vz = P.vy = 0; yaw = 0; mineHit = null;
+      camera.position.set(P.x, P.y + 8, P.z + 12); $('xhair').style.display = 'none'; $('digbar').style.display = 'none'; mineBusy = false;
+    });
+  }
+  function mineLogic(dt) {
+    if (!inMine) { if (!mineBusy && !P.dead && !P.frozen && Math.hypot(P.x - ENTR.x, P.z - ENTR.z) < 1.7) enterMine(); return; }
+    if (mineBusy) return;
+    if (Math.hypot(P.x - (MINE.ox + MINE.cx), P.z - (MINE.oz + MINE.cz)) < 1.3 && P.y < 1) { leaveMine(); return; }
+    const hit = P.dead || P.frozen ? null : mineRay(4.8); mineHit = hit;
+    const digging = (keys.KeyF || mineHold) && hit && hit.type !== 9;
+    if (digging) {
+      if (!mineTarget || mineTarget.k !== hit.k) { mineTarget = hit; mineProg = 0; }
+      mineProg += dt / (MHARD[hit.type] * (S.tools.pick ? 0.5 : 1) * (S.pw.punch ? 0.8 : 1));
+      mineSndT -= dt; if (mineSndT <= 0) { mineSndT = 0.22; SFX.stone(); }
+      $('digbar').style.display = 'block'; $('digI').style.width = Math.min(100, mineProg * 100) + '%';
+      if (mineProg >= 1) { digCell(hit); mineProg = 0; mineTarget = null; $('digbar').style.display = 'none'; }
+    } else { mineProg = 0; mineTarget = null; $('digbar').style.display = 'none'; }
+  }
+  function mineVisuals() {
+    mineLight.intensity = inMine ? 1.7 : 0; if (inMine) mineLight.position.set(P.x, P.y + 1.9, P.z);
+    if (inMine && mineHit) { mineSel.visible = true; mineSel.position.set(mineHit.x + 0.5, mineHit.y + 0.5, mineHit.z + 0.5); } else mineSel.visible = false;
+    exitPad.scale.setScalar(1 + Math.sin(T * 4) * 0.06);
+  }
+  (function buildMineEntrance() {
+    const g = new THREE.Group(); g.position.set(ENTR.x, 0, ENTR.z); scene.add(g);
+    const rock = STD(0x7a7a82, { flatShading: true, map: studTx(14, 7) }), wood = STD(0x7a5230, { map: studTx(2, 5) }), dark = new THREE.MeshBasicMaterial({ color: 0x050507 });
+    box(g, 16, 8, 7, rock, 0, 4, -4.5); box(g, 11, 5, 5, rock, -2, 10.5, -5); box(g, 6, 3, 4, rock, 4, 9.5, -5);
+    box(g, 4.6, 4, 0.2, dark, 0, 2, -0.95, false);
+    box(g, 1.1, 4.6, 1.1, wood, -2.9, 2.3, -0.5); box(g, 1.1, 4.6, 1.1, wood, 2.9, 2.3, -0.5); box(g, 7.2, 0.9, 1.3, wood, 0, 4.6, -0.5);
+    const sign = textSprite('KOPALNIA', '#ffe066', 52, '#3a2a1a'); sign.position.set(0, 6.6, 0.3); sign.scale.multiplyScalar(1.5); g.add(sign);
+    [-3.9, 3.9].forEach(x => { box(g, 0.2, 1.4, 0.2, wood, x, 0.7, 0.4); box(g, 0.5, 0.5, 0.5, STD(0xffb04a, { emissive: 0xff8a00, emissiveIntensity: 1 }), x, 1.7, 0.4, false); });
+    box(g, 0.2, 0.12, 6, STD(0x555555), -0.6, 0.08, 3.5, false); box(g, 0.2, 0.12, 6, STD(0x555555), 0.6, 0.08, 3.5, false);
+    const cart = new THREE.Group(); cart.position.set(0, 0, 4.5); g.add(cart); box(cart, 1.6, 0.9, 1.1, STD(0x6a6a72), 0, 0.8, 0); [-0.7, 0.7].forEach(wx => box(cart, 0.2, 0.5, 0.5, STD(0x222222), wx, 0.3, 0.2)); box(cart, 1.2, 0.3, 0.8, STD(0xffd84a, { emissive: 0x6a5200, emissiveIntensity: 0.6 }), 0, 1.35, 0);
+    box(g, 1.3, 1.3, 1.3, STD(0x9b6a3c, { map: studTx(1.3, 1.3) }), 5, 0.65, 1.5); box(g, 1.1, 1.1, 1.1, STD(0x9b6a3c), 6.3, 0.55, 0.8);
+    addSolid(ENTR.x, 0, ENTR.z - 4.5, 16, 8, 7, 'mine'); addSolid(ENTR.x - 2.9, 0, ENTR.z - 0.5, 1.1, 4.6, 1.1, 'mine'); addSolid(ENTR.x + 2.9, 0, ENTR.z - 0.5, 1.1, 4.6, 1.1, 'mine'); addSolid(ENTR.x, 3.7, ENTR.z - 0.5, 7.2, 0.9, 1.3, 'mine');
+    clearArea(ENTR.x, ENTR.z, 11);
+  })();
+
+  // ---- horses and the unbeatable raid ----
+  function makeHorse(coat, maneC, sc) {
+    const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+    const bm = STD(coat), mm = STD(maneC), dk = STD(0x15151a);
+    box(body, 0.95 * sc, 1.0 * sc, 2.1 * sc, bm, 0, 1.65 * sc, 0);
+    box(body, 0.5 * sc, 1.1 * sc, 0.55 * sc, bm, 0, 2.3 * sc, 1.0 * sc).rotation.x = -0.5;
+    box(body, 0.5 * sc, 0.5 * sc, 1.0 * sc, bm, 0, 2.85 * sc, 1.55 * sc); box(body, 0.34 * sc, 0.26 * sc, 0.3 * sc, dk, 0, 2.7 * sc, 2.05 * sc);
+    box(body, 0.14 * sc, 1.0 * sc, 0.3 * sc, mm, 0, 2.55 * sc, 0.85 * sc).rotation.x = -0.5;
+    [-0.18, 0.18].forEach(x => box(body, 0.12 * sc, 0.26 * sc, 0.1 * sc, bm, x * sc, 3.15 * sc, 1.35 * sc));
+    box(body, 0.2 * sc, 1.0 * sc, 0.2 * sc, mm, 0, 1.55 * sc, -1.2 * sc).rotation.x = 0.5;
+    box(body, 1.0 * sc, 0.12 * sc, 0.9 * sc, STD(0x7a3a1a), 0, 2.2 * sc, -0.05 * sc);
+    const legs = [];
+    [[-0.3, 0.75], [0.3, 0.75], [-0.3, -0.75], [0.3, -0.75]].forEach(([x, z]) => { const lp = new THREE.Group(); lp.position.set(x * sc, 1.2 * sc, z * sc); g.add(lp); box(lp, 0.24 * sc, 1.2 * sc, 0.24 * sc, bm, 0, -0.6 * sc, 0); box(lp, 0.27 * sc, 0.18 * sc, 0.27 * sc, dk, 0, -1.15 * sc, 0); legs.push(lp); });
+    g.userData = { legs, body }; return g;
+  }
+  function makeRaider(role, x, z) {
+    const boss = role === 'boss', sc = boss ? 1.3 : 1, rs = boss ? 1.25 : 1;
+    const horse = makeHorse(boss ? 0x16161a : pickOf([0x7a4a2a, 0xa0a0a8, 0x5a3a22, 0xb08a5a, 0x3a2a22]), boss ? 0xb01020 : 0x2a1a10, sc); scene.add(horse);
+    const rider = humanoid(boss ? 0x7a0f1a : role === 'pirate' ? 0xf2f2f2 : 0x2b2b33, role === 'pirate' ? 0x2a2a48 : 0x1a1a22, 0xf2c9a0);
+    rider.position.set(0, 2.28 * sc - 0.7 * rs, -0.1); rider.scale.setScalar(rs); rider.userData.legs.forEach(l => l.rotation.x = -1.25); rider.userData.arms.forEach(a => a.rotation.x = -0.8); rider.userData.swing = true;
+    if (role === 'pirate') { box(rider, 0.9, 0.12, 0.9, STD(0x15151a), 0, 2.08, 0); box(rider, 0.62, 0.3, 0.62, STD(0x15151a), 0, 2.2, 0); box(rider, 0.1, 0.1, 0.02, STD(0x000000), 0.12, 1.84, 0.27, false); box(rider, 0.9, 0.16, 0.5, STD(0xd62a3a), 0, 0.85, 0); }
+    else if (role === 'robber') { box(rider, 0.58, 0.18, 0.04, STD(0x111111), 0, 1.84, 0.26, false); box(rider, 0.6, 0.2, 0.6, STD(0x1a1a22), 0, 2.08, 0); }
+    else { const cm = STD(0xffc93c, { metalness: 0.6, roughness: 0.3, emissive: 0x553300, emissiveIntensity: 0.4 }); box(rider, 0.66, 0.2, 0.66, cm, 0, 2.1, 0); [-0.22, 0, 0.22].forEach(cx => box(rider, 0.12, 0.2, 0.12, cm, cx, 2.3, 0)); box(rider, 0.9, 1.3, 0.1, STD(0xb01020), 0, 1.1, -0.3); }
+    horse.add(rider);
+    const e = { g: horse, ud: horse.userData, rider, role, x, z, r: boss ? 1.5 : 1.1, h: 3.4, speed: boss ? 17 : 15 + rnd(-1, 2), offx: rnd(-7, 7), offz: rnd(-7, 7), stuck: 0, gal: rnd(0, 6), dir: 0, bubble: null, bubbleT: 0, tag: null, name: boss ? 'Król Zbójów' : role === 'pirate' ? 'Pirat' : 'Zbój' };
+    e.tag = makeTag(horse, boss ? 'KRÓL ZBÓJÓW' : e.name, boss ? '#ff4a4a' : '#ffd9a8', boss ? 5.6 : 4.5);
+    horse.position.set(x, 0, z); raiders.push(e); return e;
+  }
+  function gallop(e, dt, sp) {
+    e.gal += dt * sp * 0.9; const sw = Math.sin(e.gal) * 0.9, lg = e.ud.legs;
+    lg[0].rotation.x = sw; lg[3].rotation.x = sw; lg[1].rotation.x = -sw; lg[2].rotation.x = -sw; e.ud.body.position.y = Math.abs(Math.sin(e.gal)) * 0.12;
+    if (Math.random() < dt * 9) burst(e.x, 0.25, e.z, 0xcbb48a, 1, 1.5, 0.3, 0);
+  }
+  function bugOn(on) { $('wrap').classList.toggle('bugged', on); }
+  function startRaid() {
+    raid = { phase: 'warn', t: 0, warn: 24, ride: 0, strike: 0, loot: 0, hoofT: 0 };
+    banner('Słychać kopyta...', 'Król Zbójów nadjeżdża z bandą! Wydaj kasę, bo zabiorą ci połowę!', 5000); SFX.roar();
+  }
+  function spawnRaiders() {
+    const a0 = rnd(0, 6.28), roles = ['boss', 'robber', 'pirate', 'robber', 'pirate', 'robber', 'pirate'], offs = [0, -0.18, 0.18, -0.36, 0.36, -0.54, 0.54];
+    roles.forEach((role, i) => { const a = a0 + offs[i], R = 74 + (i ? rnd(0, 6) : 0); makeRaider(role, Math.cos(a) * R, Math.sin(a) * R); });
+    raid.phase = 'ride'; raid.ride = 0; say(raiders[0], 'Hahaha! Kasa moja!', 6.6); SFX.laugh(); banner('Najazd!', 'Banda na koniach jedzie prosto na ciebie', 3000);
+  }
+  function raidStrike() {
+    raid.phase = 'strike'; raid.strike = 0; P.frozen = true; P.vx = P.vz = P.vy = 0;
+    const lost = Math.floor(S.cash / 2); S.cash -= lost; raid.loot = lost; S.st.raids = (S.st.raids || 0) + 1;
+    popText(P.x, P.y + 3.6, P.z, '-' + fmtM(lost), '#ff6b8a', 1.8); burst(P.x, P.y + 1.5, P.z, 0xffc93c, 30, 9, 0.22, 4);
+    bugOn(true); SFX.glitch(); SFX.laugh(); banner('BŁĄD! Zbugowałeś się!', 'Bandyci zabierają połowę twojej kasy...', 3800);
+    raiders.forEach((e, i) => { if (i === 0 || Math.random() < 0.7) say(e, pickOf(['HAHAHA!', 'Dzięki za kasę!', 'Jarr!', 'Łatwizna!', 'Do zobaczenia!']), i === 0 ? 6.6 : 5.2); });
+    save();
+  }
+  function updateRaid(dt) {
+    if (!raid && S.raidPending && nightNow > 0.5 && !inMine && !P.dead && !rage) { S.raidPending = false; startRaid(); }
+    if (!raid) return;
+    raid.t += dt;
+    for (const e of raiders) { e.bubbleT -= dt; if (e.bubble && e.bubbleT <= 0) clearBubble(e); }
+    if (raid.phase === 'warn') {
+      raid.warn -= dt; raid.hoofT -= dt; if (raid.hoofT <= 0) { raid.hoofT = Math.max(0.25, raid.warn / 24); SFX.hoof(); }
+      if (raid.warn <= 0) spawnRaiders();
+      return;
+    }
+    if (raid.phase === 'ride') {
+      raid.ride += dt; const boss = raiders[0];
+      for (const e of raiders) {
+        const tx = P.x + (e === boss ? 0 : e.offx), tz = P.z + (e === boss ? 0 : e.offz), dx = tx - e.x, dz = tz - e.z, d = Math.hypot(dx, dz) || 1, sp = e.speed;
+        e.dir = Math.atan2(dx, dz);
+        if (moveGround(e, dx / d * sp * dt, dz / d * sp * dt)) { e.stuck += dt; if (e.stuck > 0.3) { e.stuck = 0; breakBlockNear(e, dx / d, dz / d); } } else e.stuck = 0;
+        e.g.position.set(e.x, 0, e.z); e.g.rotation.y = e.dir; gallop(e, dt, sp);
+      }
+      if (Math.hypot(P.x - boss.x, P.z - boss.z) < 9 || raid.ride > 30) raidStrike();
+      return;
+    }
+    if (raid.phase === 'strike') {
+      raid.strike += dt;
+      raiders.forEach((e, i) => {
+        const a = (i / raiders.length) * 6.28 + raid.strike * (i === 0 ? 2.2 : 2.6), rad = i === 0 ? 5 : 7.5;
+        e.x = P.x + Math.cos(a) * rad; e.z = P.z + Math.sin(a) * rad; e.g.position.set(e.x, 0, e.z); e.g.rotation.y = Math.atan2(-Math.sin(a), Math.cos(a)); gallop(e, dt, 14);
+      });
+      if (raid.strike > 3.8) { bugOn(false); P.frozen = false; raid.phase = 'leave'; SFX.laugh(); say(raiders[0], 'Do zobaczenia, frajerze!', 6.6); }
+      return;
+    }
+    if (raid.phase === 'leave') {
+      for (let i = raiders.length - 1; i >= 0; i--) {
+        const e = raiders[i], R = Math.hypot(e.x, e.z) || 1, ux = e.x / R, uz = e.z / R, sp = 20;
+        e.x += ux * sp * dt; e.z += uz * sp * dt; e.g.position.set(e.x, 0, e.z); e.g.rotation.y = Math.atan2(ux, uz); gallop(e, dt, sp);
+        if (R > 88) { scene.remove(e.g); raiders.splice(i, 1); }
+      }
+      if (!raiders.length) { banner('Odjechali z twoją kasą... haha', 'Zabrali ' + fmtM(raid.loot) + '. Następnym razem wydaj pieniądze przed najazdem!', 4500); raid = null; }
     }
   }
 
@@ -932,14 +1359,14 @@ canvas#c{display:block;width:100%;height:100%}
   function moveJoy(e) { const r = joyEl.getBoundingClientRect(), max = r.width / 2 - 10; let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2); const l = Math.hypot(dx, dy); if (l > max) { dx *= max / l; dy *= max / l; } joy.x = dx / max; joy.y = dy / max; knob.style.transform = `translate(${dx}px,${dy}px)`; }
   const holdBtn = (el, down, up) => { el.addEventListener('pointerdown', e => { e.preventDefault(); el.classList.add('down'); try { el.setPointerCapture(e.pointerId); } catch (er) {} down(); }); const u = () => { el.classList.remove('down'); up && up(); }; el.addEventListener('pointerup', u); el.addEventListener('pointercancel', u); };
   holdBtn($('jumpBtn'), () => { jumpBuf = 0.15; jumpHeld = true; }, () => jumpHeld = false);
-  holdBtn($('hitBtn'), () => attack());
+  holdBtn($('hitBtn'), () => { mineHold = true; attack(); }, () => { mineHold = false; });
   holdBtn($('buildBtn'), () => toggleBuild());
   holdBtn($('delBtn'), () => { delMode = !delMode; $('delBtn').classList.toggle('act', delMode); $('mode').textContent = delMode ? 'ZABIERANIE KLOCKÓW' : 'TRYB BUDOWANIA'; });
   const drag = { id: null, x: 0, y: 0, sx: 0, sy: 0, t: 0, btn: 0 };
   let mouseX = null, mouseY = null;
   canvas.addEventListener('contextmenu', e => e.preventDefault());
   canvas.addEventListener('pointerdown', e => { if (drag.id !== null) return; drag.id = e.pointerId; drag.x = drag.sx = e.clientX; drag.y = drag.sy = e.clientY; drag.t = performance.now(); drag.btn = e.button; try { canvas.setPointerCapture(e.pointerId); } catch (er) {} });
-  canvas.addEventListener('pointermove', e => { mouseX = e.clientX; mouseY = e.clientY; if (e.pointerId !== drag.id) return; yaw -= (e.clientX - drag.x) * 0.006; pitch = Math.min(1.35, Math.max(0.05, pitch + (e.clientY - drag.y) * 0.004)); drag.x = e.clientX; drag.y = e.clientY; });
+  canvas.addEventListener('pointermove', e => { mouseX = e.clientX; mouseY = e.clientY; if (e.pointerId !== drag.id) return; yaw -= (e.clientX - drag.x) * 0.006; if (inMine) mpitch = Math.min(1.45, Math.max(-1.45, mpitch + (e.clientY - drag.y) * 0.004)); else pitch = Math.min(1.35, Math.max(0.05, pitch + (e.clientY - drag.y) * 0.004)); drag.x = e.clientX; drag.y = e.clientY; });
   canvas.addEventListener('pointerup', e => {
     if (e.pointerId !== drag.id) return; drag.id = null;
     const moved = Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy), quick = performance.now() - drag.t < 450;
@@ -948,7 +1375,7 @@ canvas#c{display:block;width:100%;height:100%}
   canvas.addEventListener('pointercancel', e => { if (e.pointerId === drag.id) drag.id = null; });
   canvas.addEventListener('wheel', e => { camDist = Math.min(26, Math.max(5, camDist + e.deltaY * 0.015)); }, { passive: true });
 
-  function toggleBuild() { building = !building; delMode = false; $('delBtn').classList.remove('act'); document.body.classList.toggle('building', building); $('mode').style.display = building ? 'block' : 'none'; $('mode').textContent = 'TRYB BUDOWANIA'; $('buildBtn').classList.toggle('act', building); if (building && isTouch) tip('Stuknij w ziemię albo klocek, żeby postawić'); }
+  function toggleBuild() { if (inMine) { tip('W kopalni nie da się budować'); return; } building = !building; delMode = false; $('delBtn').classList.remove('act'); document.body.classList.toggle('building', building); $('mode').style.display = building ? 'block' : 'none'; $('mode').textContent = 'TRYB BUDOWANIA'; $('buildBtn').classList.toggle('act', building); if (building && isTouch) tip('Stuknij w ziemię albo klocek, żeby postawić'); }
 
   function hurtPlayer(n) {
     if (P.hurtT > 0 || P.dead) return;
@@ -958,7 +1385,7 @@ canvas#c{display:block;width:100%;height:100%}
     if (S.hp <= 0) { const lost = Math.floor(S.cash * 0.1); S.cash -= lost; S.hp = 5; P.x = 0; P.z = 9; P.y = 0; P.vx = P.vz = P.vy = 0; updHearts(); const rv = thieves.find(x => x.rival); if (rv) { S.rival.level = (S.rival.level || 0) + 1; removeThief(rv); banner('Przegrałeś pojedynek', 'Zbyszek wróci jutro silniejszy. Zrób miecz, zbroję i pieczeń!', 3800); save(); } else banner('Zemdlałeś!', 'Straciłeś ' + fmtM(lost) + '. Obuduj się albo zrób miecz', 3000); }
   }
   function attack() {
-    if (hitCd > 0 || state !== 'play' || paused || P.dead) return;
+    if (hitCd > 0 || state !== 'play' || paused || P.dead || P.frozen || inMine) return;
     hitCd = 0.35; swingT = 0.3; SFX.whoosh();
     const fx = Math.sin(P.facing), fz = Math.cos(P.facing);
     let best = null, bd = 9;
@@ -966,6 +1393,7 @@ canvas#c{display:block;width:100%;height:100%}
     thieves.forEach(t => consider(t, t.x, t.z, t.r, 'thief'));
     villagers.forEach(v => { if (!v.enraged && v.g.visible) consider(v, v.x, v.z, v.r, 'npc'); });
     guests.forEach(v => { if (!v.enraged) consider(v, v.x, v.z, v.r, 'npc'); });
+    raiders.forEach(e => consider(e, e.x, e.z, e.r, 'raider'));
     animals.forEach(a => consider(a, a.x, a.z, a.r + 0.4, 'animal'));
     trees.forEach(t => { if (t.wood > 0) consider(t, t.x, t.z, 0.4 * t.s + 0.2, 'tree'); });
     rocks.forEach(r => { if (r.stone > 0) consider(r, r.x, r.z, r.s * 0.75, 'rock'); });
@@ -983,6 +1411,9 @@ canvas#c{display:block;width:100%;height:100%}
       const a = best.obj; a.hp -= dmg; a.hurtT = 0.3; a.state = 'flee'; a.t = 4; SFX.chop(); burst(a.x, 1.5, a.z, 0xffffff, 6, 3, 0.15);
       const kb = S.pw.punch ? 3 : 1.2; moveGround(a, fx * kb, fz * kb);
       if (a.hp <= 0) { const n = a.kind === 'elk' ? 2 : 1; S.inv.mieso += n; S.inv.skora += n; S.st.hunted++; SFX.poof(); burst(a.x, 1.5, a.z, 0xffffff, 26, 5, 0.25, 4); popText(a.x, 3, a.z, `+${n} mięso +${n} skóra`, '#ffd9a8', 0.8); scene.remove(a.g); animals.splice(animals.indexOf(a), 1); checkQuest(); }
+    } else if (best.kind === 'raider') {
+      const e = best.obj; popText(e.x, 6, e.z, 'Nie do pokonania!', '#ffd24a', 1); SFX.stone(); burst(e.x, 2.5, e.z, 0xffffff, 6, 3, 0.15);
+      if (!e.bubble) say(e, pickOf(['Haha, słabeusz!', 'Łaskocze!', 'Śmieszne!']), e === raiders[0] ? 6.6 : 5.2);
     } else if (best.kind === 'npc') {
       angerNpc(best.obj);
     } else if (best.kind === 'thief') {
@@ -1018,7 +1449,7 @@ canvas#c{display:block;width:100%;height:100%}
     P.x += P.vx * dt; for (const b of list) if (ovP(b)) { if (P.grounded && b.y1 - P.y <= 0.55 && b.block) { P.y = b.y1; continue; } P.x = P.vx > 0 ? b.x0 - R_ : b.x1 + R_; P.vx = 0; }
     P.z += P.vz * dt; for (const b of list) if (ovP(b)) { if (P.grounded && b.y1 - P.y <= 0.55 && b.block) { P.y = b.y1; continue; } P.z = P.vz > 0 ? b.z0 - R_ : b.z1 + R_; P.vz = 0; }
     if (P.grounded && ground && ground.tag && ground.tag.startsWith('belt')) P.x += BELT_SPEED * rateMul() * dt;
-    const RR = 88; if (Math.hypot(P.x, P.z) > RR) { const a = Math.atan2(P.z, P.x); P.x = Math.cos(a) * RR; P.z = Math.sin(a) * RR; }
+    const RR = 88; if (!inMine && Math.hypot(P.x, P.z) > RR) { const a = Math.atan2(P.z, P.x); P.x = Math.cos(a) * RR; P.z = Math.sin(a) * RR; }
     P.hurtT -= dt;
   }
 
@@ -1082,7 +1513,8 @@ canvas#c{display:block;width:100%;height:100%}
       { id: 'regen', name: 'Regeneracja', desc: 'Serca odnawiają się 3x szybciej', p: 12000, icon: '💚' },
       { id: 'jet', name: 'Plecak odrzutowy', desc: 'Trzymaj skok w powietrzu, żeby latać', p: 30000, icon: '🚀' }
     ],
-    food: [{ k: 'pieczen', n: 1, p: 60, icon: '🍖', name: 'Pieczeń' }, { k: 'mieso', n: 2, p: 50, icon: '🥩', name: '2 mięsa' }]
+    food: [{ k: 'pieczen', n: 1, p: 60, icon: '🍖', name: 'Pieczeń' }, { k: 'mieso', n: 2, p: 50, icon: '🥩', name: '2 mięsa' }],
+    guard: [{ id: 'guard', p: 1000 }]
   };
   let shopTab = 'blocks';
   document.querySelectorAll('#shop .tab').forEach(t => t.onclick = () => { shopTab = t.dataset.t; document.querySelectorAll('#shop .tab').forEach(x => x.classList.toggle('on', x === t)); renderShop(); });
@@ -1091,6 +1523,7 @@ canvas#c{display:block;width:100%;height:100%}
     SHOP[shopTab].forEach(it => {
       const d = document.createElement('div'); d.className = 'rec'; let ic, title, sub, can, act;
       if (shopTab === 'powers') { const has = S.pw[it.id], stolen = (S.rival && S.rival.powers.includes(it.id)) || thieves.some(t => t.power === it.id); ic = `<div class="ic" style="background:#EEF3FA">${it.icon}</div>`; title = it.name; sub = stolen ? 'Ukradziona! Odbierzesz ją, pokonując złodzieja' : has ? 'Masz już tę moc' : it.desc + ' · ' + fmtM(it.p); can = !has && !stolen && S.cash >= it.p; act = () => { S.cash -= it.p; S.pw[it.id] = true; applyGear(); banner('Nowa moc!', it.name); SFX.buy(); checkQuest(); }; }
+      else if (shopTab === 'guard') { ic = `<div class="ic" style="background:#E3EEFF">🛡️</div>`; title = 'Ochroniarz na 1 dzień'; sub = `Stoi na posterunku od zmierzchu do świtu i rozwala rabusiów · ${fmtM(it.p)} · zatrudnieni: ${S.guards || 0}/5`; can = S.cash >= it.p && (S.guards || 0) < 5; act = () => { S.cash -= it.p; hireGuard(); }; }
       else if (shopTab === 'food') { ic = `<div class="ic" style="background:#FFF1D6">${it.icon}</div>`; title = it.name; sub = fmtM(it.p); can = S.cash >= it.p; act = () => { S.cash -= it.p; S.inv[it.k] += it.n; SFX.buy(); }; }
       else { ic = `<div class="ic" style="background-image:url(${texURL(it.k)})"></div>`; title = it.n + ' × ' + BT[it.k].name; sub = fmtM(it.p) + ' · masz ' + (S.inv[it.k] || 0); can = S.cash >= it.p; act = () => { S.cash -= it.p; S.inv[it.k] += it.n; SFX.buy(); }; }
       d.innerHTML = `${ic}<div class="tx"><b>${title}</b><small>${sub}</small></div>`;
@@ -1154,26 +1587,32 @@ canvas#c{display:block;width:100%;height:100%}
   const DAY_LEN = 300; let dayT = 20, nightNow = 0;
   function dayNight(dt) {
     dayT = (dayT + dt) % DAY_LEN; const f = dayT / DAY_LEN, el = Math.sin(f * Math.PI * 2);
-    const nightRaw = Math.max(0, Math.min(1, -el * 2.5 + 0.2)), night = Math.max(nightRaw, doom), dusk = Math.max(0, 1 - Math.abs(el) * 3.5) * (1 - doom); nightNow = nightRaw;
+    const nightRaw = Math.max(0, Math.min(1, -el * 2.5 + 0.2)), night = Math.max(nightRaw, doom, storm.k * 0.7), dusk = Math.max(0, 1 - Math.abs(el) * 3.5) * (1 - doom); nightNow = nightRaw;
     paintSky(DAY_T.clone().lerp(NIGHT_T, night).lerp(DUSK_T, dusk * 0.6), DAY_H.clone().lerp(NIGHT_H, night).lerp(DUSK_H, dusk * 0.7));
-    hemi.intensity = 0.72 - night * 0.4; sun.intensity = 0.9 - night * 0.62; sun.color.setHex(dusk > 0.4 ? 0xffb37a : night > 0.5 ? 0x9fb4ff : 0xfff4e0);
-    stars.material.opacity = night; moon.material.opacity = night;
+    hemi.intensity = 0.72 - night * 0.4 + storm.flash * 1.1; sun.intensity = 0.9 - night * 0.62; sun.color.setHex(dusk > 0.4 ? 0xffb37a : night > 0.5 ? 0x9fb4ff : 0xfff4e0);
+    const nightSky = Math.max(nightRaw, doom); stars.material.opacity = nightSky * (1 - storm.k); moon.material.opacity = nightSky * (1 - storm.k);
     const lampK = doom > 0.05 ? (Math.random() < 0.55 ? 0 : 1) * (1 - doom) : 1;
     lampMats.forEach(m => m.emissiveIntensity = (0.12 + night * 1.3) * lampK); blockMats.lampa.emissiveIntensity = (0.5 + night * 1.2) * lampK;
     $('doom').style.opacity = doom.toFixed(2);
     const isNight = nightRaw > 0.5;
     if (isNight && !wasNight && state === 'play') {
       SFX.night(); S.nights = (S.nights || 0) + 1;
+      if (S.owned.length >= 12) { S.raidCd = (S.raidCd || 0) + 1; if (S.raidCd >= 3) { S.raidCd = 0; S.raidPending = true; } }
       const rivalNight = S.rival && S.rival.powers && S.rival.powers.length;
       if (!S.crowdDone) { S.crowdDone = true; banner('Pierwsza noc!', 'Na działkę idzie tłum ludzi. Niektórzy to rabusie!', 4500); spawnCrowd(16, 5); setTimeout(() => tip('Rabusie idą prosto do pieca. Uważaj, kogo bijesz!'), 4700); }
       else if (S.nights % 3 === 0) { banner('Goście na działce!', 'Znowu ktoś idzie. Który to rabuś?', 3500); spawnCrowd(7, 2); }
       else if (!rivalNight) banner('Zapada noc!', 'Rabusie idą po twoją kasę. Obuduj piec!', 3000);
       if (rivalNight) { setTimeout(() => { banner('Pojedynek!', 'Zbój Zbyszek wraca z twoją mocą. Pokonaj go!', 3500); }, S.crowdDone && S.nights === 1 ? 5200 : 0); setTimeout(() => { if (!thieves.some(x => x.rival) && nightNow > 0.5) makeRival(); }, 1500); }
     }
-    if (!isNight && wasNight && state === 'play') { banner('Świta!', 'Rabusie uciekają'); SFX.day(); }
+    if (!isNight && wasNight && state === 'play') { banner('Świta!', 'Rabusie uciekają'); SFX.day(); despawnGuards(); }
     wasNight = isNight;
+    if (state === 'play' && ((f > 0.42 && f < 0.5) || isNight) && !guardsOut && (S.guards || 0) > 0) spawnGuards();
     const toNight = ((0.5 - f + 1) % 1) * DAY_LEN;
-    $('clock').textContent = isNight ? '🌙 Noc' : dusk > 0.5 && el < 0.3 && f > 0.25 ? '🌅 Zmierzch' : (toNight < 40 ? `☀️ Noc za ${Math.ceil(toNight)} s` : '☀️ Dzień');
+    let clk = isNight ? '🌙 Noc' : dusk > 0.5 && el < 0.3 && f > 0.25 ? '🌅 Zmierzch' : (toNight < 40 ? `☀️ Noc za ${Math.ceil(toNight)} s` : '☀️ Dzień');
+    if (storm.on) clk = '⛈ Burza'; if (raid && raid.phase === 'warn') clk = '⚠ Najazd za ' + Math.ceil(raid.warn) + ' s'; if (inMine) clk = '⛏ Kopalnia';
+    $('clock').textContent = clk;
+    if (inMine) { hemi.intensity = 0.22; sun.intensity = 0; scene.fog.color.setHex(0x050507); scene.fog.near = 2; scene.fog.far = 32; }
+    else { scene.fog.near = 70 - storm.k * 40; scene.fog.far = 240 - storm.k * 140; }
     return { night, f };
   }
 
@@ -1183,14 +1622,14 @@ canvas#c{display:block;width:100%;height:100%}
     T += dt; hitCd -= dt; swingT -= dt; foodBuff -= dt;
     for (const d of droppers) { d.t -= dt * rateMul(); if (d.t <= 0) { d.t += DROP_INTERVAL; spawnOre(d); } d.body.scale.y += (1 - d.body.scale.y) * dt * 10; if (d.rainbow) d.light.material.color.setHSL((T * 0.3) % 1, 0.9, 0.6); }
     upgraders.forEach(u => u.field.material.opacity += (0.3 + Math.sin(T * 4 + u.x) * 0.08 - u.field.material.opacity) * dt * 4);
-    updateOres(dt); if (!P.dead) movePlayer(dt); else { P.vx = P.vz = 0; deathStep(dt); }
+    updateOres(dt); if (!P.dead && !P.frozen) movePlayer(dt); else { P.vx = P.vz = 0; if (P.dead) deathStep(dt); }
     const night = nightNow > 0.5;
-    updateAnimals(dt); updateVillagers(dt, night); updateGuests(dt, night); updateThieves(dt, night); updateRage(dt);
+    updateAnimals(dt); updateVillagers(dt, night); updateGuests(dt, night); updateThieves(dt, night); updateRage(dt); stormStep(dt); bulletsStep(dt); updateGuards(dt); updateNeighbors(dt); updateRaid(dt); mineLogic(dt);
     animalRespawn -= dt; if (animalRespawn <= 0) { animalRespawn = 20; if (animals.length < 11) makeAnimal(Math.random() < 0.35 ? 'elk' : 'deer'); }
     trees.forEach(t => { if (t.regrow > 0) { t.regrow -= dt; const k = 0.25 + 0.75 * Math.max(0, 1 - t.regrow / 60); t.g.scale.setScalar(k); if (t.regrow <= 0) { t.wood = 4; t.g.scale.setScalar(1); t.sol.y1 = 3 * t.s; } } });
     rocks.forEach(r => { if (r.regrow > 0) { r.regrow -= dt; if (r.regrow <= 0) { r.stone = 5; r.m.visible = true; r.sol.y1 = r.s * 1.2; } } });
     regenT += dt; if (regenT > (S.pw.regen ? 6 : 18)) { regenT = 0; if (S.hp < 5) { S.hp++; updHearts(); } }
-    for (const b of Object.values(buttons)) { const inside = !P.dead && Math.abs(P.x - b.g.position.x) < 1.4 && Math.abs(P.z - b.g.position.z) < 1.4 && P.y < 1.2; if (inside && !b.inside) purchase(b); if (!buttons[b.it.id]) continue; b.inside = inside; drawButton(b); b.spr.position.y = 2.6 + Math.sin(T * 2 + b.g.position.x) * 0.1; }
+    for (const b of Object.values(buttons)) { const inside = !P.dead && !P.frozen && Math.abs(P.x - b.g.position.x) < 1.4 && Math.abs(P.z - b.g.position.z) < 1.4 && P.y < 1.2; if (inside && !b.inside) purchase(b); if (!buttons[b.it.id]) continue; b.inside = inside; drawButton(b); b.spr.position.y = 2.6 + Math.sin(T * 2 + b.g.position.x) * 0.1; }
     const t = nextTarget(); if (t) { arrow.visible = true; arrow.position.set(t.g.position.x, 4.6 + Math.abs(Math.sin(T * 3)) * 0.6, t.g.position.z); arrow.rotation.y += dt * 2; arM.color.setHex(S.cash >= priceOf(t.it) ? 0x7CFFB2 : 0xffc93c); } else arrow.visible = false;
     giftT -= dt; if (!gift && giftT <= 0) { spawnGift(); giftT = rnd(50, 90); }
     if (gift) { gift.g.rotation.y += dt * 1.5; gift.life -= dt; const gd = Math.hypot(P.x - gift.x, P.z - gift.z);
@@ -1200,7 +1639,8 @@ canvas#c{display:block;width:100%;height:100%}
     saveT -= dt; if (saveT <= 0) { save(); saveT = 5; updQuest(); }
   }
   function visuals(dt) {
-    dayNight(dt);
+    dayNight(dt); mineVisuals();
+    rain.visible = storm.k > 0.04 && !inMine; rain.material.opacity = 0.55 * storm.k; rain.position.set(camera.position.x, camera.position.y - 14, camera.position.z); if (rain.visible) rainStep(dt);
     beltMats.forEach(t => t.offset.x -= dt * BELT_SPEED * rateMul() / 2);
     clouds.forEach(c => { c.position.x += dt * 1.5; if (c.position.x > 220) c.position.x = -220; });
     for (const s of smokeSources) {
@@ -1218,14 +1658,17 @@ canvas#c{display:block;width:100%;height:100%}
     if (swingT > 0) { const k = swingT / 0.3; u.arms[1].rotation.x = -2.4 * k; }
     avatar.visible = P.hurtT > 0 ? Math.floor(T * 20) % 2 === 0 : true;
     avatar.rotation.x += ((P.dead ? -1.5 : 0) - avatar.rotation.x) * Math.min(1, dt * 8);
+    if (inMine) { avatar.visible = false; blob.visible = false; } else blob.visible = true;
+    if (P.frozen) { avatar.position.x += (Math.random() - 0.5) * 0.35; avatar.position.z += (Math.random() - 0.5) * 0.35; avatar.rotation.y += (Math.random() - 0.5) * 0.8; }
     let top = 0; for (const b of boxesNear(P.x, P.y - 3, P.z, 0, 4)) if (P.x > b.x0 && P.x < b.x1 && P.z > b.z0 && P.z < b.z1 && b.y1 <= P.y + 0.1) top = Math.max(top, b.y1);
     blob.position.set(P.x, top + 0.03, P.z); blob.scale.setScalar(Math.max(0.4, 1 - (P.y - top) * 0.08));
     if (state === 'menu') yaw += dt * 0.08;
     const ch = Math.sin(pitch) * camDist, cr = Math.cos(pitch) * camDist;
     const tx_ = P.x + Math.sin(yaw) * cr, ty = P.y + 1.6 + ch, tz = P.z + Math.cos(yaw) * cr, ck = 1 - Math.exp(-9 * dt);
-    camera.position.x += (tx_ - camera.position.x) * ck; camera.position.y += (ty - camera.position.y) * ck; camera.position.z += (tz - camera.position.z) * ck;
+    if (inMine) { camera.position.set(P.x, P.y + 1.62, P.z); camera.rotation.set(-mpitch, yaw, 0, 'YXZ'); }
+    else { camera.position.x += (tx_ - camera.position.x) * ck; camera.position.y += (ty - camera.position.y) * ck; camera.position.z += (tz - camera.position.z) * ck; }
     if (rage && rage.phase === 'chase' && !paused) { camera.position.x += (Math.random() - 0.5) * 0.18; camera.position.y += (Math.random() - 0.5) * 0.12; }
-    camera.lookAt(P.x, P.y + 1.4, P.z); sky.position.copy(camera.position);
+    if (!inMine) camera.lookAt(P.x, P.y + 1.4, P.z); sky.position.copy(camera.position);
     const f = dayT / DAY_LEN; sun.position.set(P.x + Math.cos(f * Math.PI * 2) * 40, 25 + Math.abs(Math.sin(f * Math.PI * 2)) * 30, P.z + 20); sun.target.position.set(P.x, 0, P.z);
     updateGhost(mouseX, mouseY);
     renderer.render(scene, camera);
@@ -1247,11 +1690,12 @@ canvas#c{display:block;width:100%;height:100%}
     if (hasSave && away > 60 && incomeRate > 0) { const off = incomeRate * away * 0.25; earn(off); banner('Witaj z powrotem!', `Fabryka zarobiła ${fmtM(off)}`, 3200); SFX.gift(); }
     else if (!hasSave) banner('Twoja działka', 'Zrób pierwsze zadanie w lewym rogu', 3200);
     hasSave = true; checkQuest(); save();
+    if (!S.mineTip) { S.mineTip = true; setTimeout(() => tip('Na wschodzie jest kopalnia. Złoto = kasa!'), 8000); }
   }
   function togglePause() {
     if (state !== 'play' || !$('confirm').classList.contains('hide') || !$('craft').classList.contains('hide') || !$('shop').classList.contains('hide')) return;
     paused = !paused; $('pause').classList.toggle('hide', !paused);
-    if (paused) { $('pStats').innerHTML = `Zarobione: <b>${fmtM(S.earned)}</b> · Maszyny: <b>${S.owned.length}/${ITEMS.length}</b><br>Klocki postawione: <b>${S.st.placed}</b> · Rabusie: <b>${S.st.thieves}</b> · Wygrane pojedynki: <b>${S.st.duels || 0}</b> · Polowania: <b>${S.st.hunted}</b>`; save(); }
+    if (paused) { $('pStats').innerHTML = `Zarobione: <b>${fmtM(S.earned)}</b> · Maszyny: <b>${S.owned.length}/${ITEMS.length}</b><br>Klocki postawione: <b>${S.st.placed}</b> · Rabusie: <b>${S.st.thieves}</b> · Wygrane pojedynki: <b>${S.st.duels || 0}</b> · Polowania: <b>${S.st.hunted}</b><br>Wykopane bloki: <b>${S.st.mined || 0}</b> · Najazdy bandytów: <b>${S.st.raids || 0}</b><br>Ranking: ${updRank().map((x, i) => (i + 1) + '. ' + (x.you ? '<b>Ty</b>' : x.name) + ' ' + fmtM(x.v)).join(' · ')}`; save(); }
   }
   $('playBtn').onclick = startGame;
   $('newBtn').onclick = () => confirmBox('Nowa gra?', 'Cały postęp, klocki, moce i odrodzenia zostaną skasowane.', () => { try { localStorage.removeItem(SAVE); } catch (e) {} location.reload(); });
