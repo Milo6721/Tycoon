@@ -51,6 +51,11 @@ canvas#c{display:block;width:100%;height:100%}
 .banner small{display:inline-block;margin-top:8px;font-weight:800;font-size:15px;background:var(--glass);padding:5px 12px;border-radius:10px}
 .tip{position:absolute;left:50%;top:40%;transform:translateX(-50%);background:var(--glass);padding:7px 14px;border-radius:12px;font-weight:800;font-size:15px;pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap}
 .flash{position:absolute;inset:0;background:radial-gradient(transparent 45%,rgba(255,40,70,.65));opacity:0;pointer-events:none;transition:opacity .3s}
+.doom{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(40,0,0,0) 12%,rgba(8,0,0,.92) 78%)}
+.blackout{position:absolute;inset:0;pointer-events:none;opacity:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;transition:opacity .8s}
+.blackout .dt{font:400 clamp(44px,12vw,92px)/1 "Lilita One";color:#ff3b3b;-webkit-text-stroke:3px #2a0000;paint-order:stroke fill}
+.blackout .ds{margin-top:16px;font:800 clamp(16px,4.2vw,24px)/1.5 "Nunito";color:#ffd9d9;max-width:520px}
+.blackout .ds b{color:#ff8a8a}
 .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(22,33,58,.5)}
 .overlay.hide{display:none}
 .card{background:#fff;color:var(--ink);border-radius:24px;padding:20px 18px 18px;max-width:440px;width:100%;text-align:center;box-shadow:0 10px 0 var(--ink);border:3px solid var(--ink);max-height:100%;overflow:auto}
@@ -99,6 +104,8 @@ canvas#c{display:block;width:100%;height:100%}
 <div id="wrap">
   <canvas id="c"></canvas>
   <div class="flash" id="flash"></div>
+  <div class="doom" id="doom"></div>
+  <div class="blackout" id="blackout"><div class="dt" id="deathTitle">ZGINĄŁEŚ</div><div class="ds" id="deathTxt"></div></div>
   <div class="cross" id="cross"></div>
   <div class="hud">
     <div class="left">
@@ -179,6 +186,7 @@ canvas#c{display:block;width:100%;height:100%}
       g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d); } catch (e) {}
   }
   const SFX = {
+    roar: () => { tone(70, 0.9, 'sawtooth', 0.08, -30); tone(95, 0.9, 'square', 0.04, -40); }, doom: () => { tone(55, 1.4, 'sawtooth', 0.09, -25); setTimeout(() => tone(40, 1.2, 'sine', 0.1, -10), 200); }, stomp: () => tone(60, 0.16, 'sine', 0.09, -25),
     ching: () => { tone(1568, 0.06, 'square', 0.018); setTimeout(() => tone(2093, 0.08, 'square', 0.015), 40); },
     buy: () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'square', 0.05), i * 70)),
     no: () => tone(180, 0.2, 'sawtooth', 0.04, -60), jump: () => tone(300, 0.12, 'square', 0.03, 260),
@@ -472,6 +480,7 @@ canvas#c{display:block;width:100%;height:100%}
   const acone = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1, 4), arM); acone.rotation.x = Math.PI; arrow.add(acone); box(arrow, 0.4, 0.8, 0.4, arM, 0, 0.9, 0, false);
   function nextTarget() { let best = null; Object.values(buttons).forEach(b => { if (b.isReb) return; if (!best || priceOf(b.it) < priceOf(best.it)) best = b; }); return best || buttons.rebirth || null; }
   function purchase(b) {
+    if (P.dead) return;
     const it = b.it, price = priceOf(it);
     if (S.cash < price) { tip('Brakuje ' + fmtM(price - S.cash)); SFX.no(); return; }
     if (b.isReb) { confirmBox('Odrodzenie?', `Stracisz maszyny i kasę (klocki, przedmioty i moce zostają), ale zarabiasz na zawsze więcej: x${mult() + 0.5}.`, doRebirth); return; }
@@ -574,8 +583,8 @@ canvas#c{display:block;width:100%;height:100%}
   }
 
   // ================= ENTITIES =================
-  const thieves = [], animals = [], villagers = [];
-  const entities = () => thieves.concat(animals, villagers);
+  const thieves = [], animals = [], villagers = [], guests = [];
+  const entities = () => thieves.concat(animals, villagers, guests);
   function boxesNear(x, y, z, r, h) {
     const out = [];
     for (const s of solids) if (s.x1 > x - r - 1 && s.x0 < x + r + 1 && s.z1 > z - r - 1 && s.z0 < z + r + 1) out.push(s);
@@ -632,13 +641,13 @@ canvas#c{display:block;width:100%;height:100%}
   let animalRespawn = 0;
 
   // ---- villagers ----
-  const LINES_V = ['Ładna fabryka!', 'Uważaj w nocy na rabusiów!', 'Obuduj piec, to nie ukradną.', 'Widziałem łosia w lesie!', 'Z drewna zrobisz deski. Wciśnij E.', 'Miecz robi się z desek i kamienia.', 'Złote rudy dają złoto do craftingu!', 'Plecak odrzutowy jest super!', 'Moja chata jest tam, za drzewami.', 'Lampy świecą w nocy.'];
+  const LINES_V = ['Ładna fabryka!', 'Uważaj w nocy na rabusiów!', 'Obuduj piec, to nie ukradną.', 'Widziałem łosia w lesie!', 'Z drewna zrobisz deski. Wciśnij E.', 'Miecz robi się z desek i kamienia.', 'Złote rudy dają złoto do craftingu!', 'Plecak odrzutowy jest super!', 'Moja chata jest tam, za drzewami.', 'Lampy świecą w nocy.', 'Lepiej mnie nie denerwuj...', 'Nie lubię, jak ktoś mnie zaczepia.'];
   const VNAMES = [['Ania', 0xff4f8b], ['Bartek', 0x4f9dff], ['Zosia', 0xffc93c]];
   function makeVillager(i) {
     const [name, col] = VNAMES[i], g = humanoid(col, 0x5a4a3a, [0xffd34d, 0xf2c9a0, 0xc68a5a][i]); scene.add(g);
     box(g, 0.62, 0.15, 0.62, STD([0x6b4a2e, 0xff9a3c, 0x3ddc84][i]), 0, 2.1, 0);
     const tag = textSprite(name, '#ffffff', 40); tag.position.y = 2.7; tag.scale.multiplyScalar(0.7); g.add(tag);
-    const v = { name, g, x: -32 + i * 4, z: 34 - i * 3, r: 0.4, h: 1.95, tx: 0, tz: 0, t: 0, sayT: rnd(3, 10), bubble: null, bubbleT: 0, home: [-40 + i * 5, 36 + i * 3] };
+    const v = { name, fem: [1, 0, 1][i] === 1, tag, g, x: -32 + i * 4, z: 34 - i * 3, r: 0.4, h: 1.95, tx: 0, tz: 0, t: 0, sayT: rnd(3, 10), bubble: null, bubbleT: 0, home: [-40 + i * 5, 36 + i * 3] };
     v.tx = v.x; v.tz = v.z; villagers.push(v); return v;
   }
   for (let i = 0; i < 3; i++) makeVillager(i);
@@ -649,6 +658,7 @@ canvas#c{display:block;width:100%;height:100%}
   function say(holder, text, y = 3.4) { if (holder.bubble) { holder.g.remove(holder.bubble); holder.bubble.material.map.dispose(); } const s = textSprite(text, '#16213a', 36, '#ffffff'); s.position.y = y; s.scale.multiplyScalar(0.75); holder.g.add(s); holder.bubble = s; holder.bubbleT = 4; }
   function updateVillagers(dt, night) {
     for (const v of villagers) {
+      if (v.enraged) continue;
       v.t -= dt; v.sayT -= dt; v.bubbleT -= dt;
       if (v.bubble && v.bubbleT <= 0) { v.g.remove(v.bubble); v.bubble.material.map.dispose(); v.bubble = null; }
       if (night) { v.tx = v.home[0]; v.tz = v.home[1]; }
@@ -668,14 +678,29 @@ canvas#c{display:block;width:100%;height:100%}
   }
 
   // ---- thieves ----
-  function makeThief() {
-    const g = humanoid(0x2b2b33, 0x1a1a22, 0xf2c9a0); scene.add(g);
-    box(g, 0.58, 0.18, 0.04, STD(0x111111), 0, 1.84, 0.26, false); box(g, 0.6, 0.2, 0.6, STD(0x1a1a22), 0, 2.08, 0);
+  const CROWD_COLORS = [0xe86a6a, 0x6ab0e8, 0x7ad17a, 0xe8c46a, 0xb08ae8, 0xe89a6a, 0x6ae8d0, 0xe86ab0, 0xc8c8d8];
+  const GNAMES = [['Kuba', 0], ['Marta', 1], ['Olek', 0], ['Kasia', 1], ['Staszek', 0], ['Basia', 1], ['Franek', 0], ['Hela', 1], ['Marek', 0], ['Jola', 1], ['Wojtek', 0], ['Ewa', 1], ['Tomek', 0], ['Gosia', 1], ['Leszek', 0], ['Ola', 1], ['Darek', 0], ['Irena', 1]];
+  const SKINS = [0xffd34d, 0xf2c9a0, 0xc68a5a, 0x8d5a3a];
+  const pickName = () => { const [n, f] = GNAMES[Math.floor(Math.random() * GNAMES.length)]; return { n, f: !!f }; };
+  const pickOf = arr => arr[Math.floor(Math.random() * arr.length)];
+  function makeTag(g, text, color, y = 2.7) { const sp = textSprite(text, color, 40); sp.position.y = y; sp.scale.multiplyScalar(0.7); g.add(sp); return sp; }
+  function swapTag(o, text, color) { if (o.tag) { o.g.remove(o.tag); o.tag.material.map.dispose(); o.tag.material.dispose(); } o.tag = makeTag(o.g, text, color); }
+  function clearBubble(o) { if (o.bubble) { o.g.remove(o.bubble); o.bubble.material.map.dispose(); o.bubble = null; } }
+  function makeThief(opts = {}) {
+    const dis = !!opts.disguise, nm = pickName();
+    const g = dis ? humanoid(pickOf(CROWD_COLORS), 0x3a4a6a, pickOf(SKINS)) : humanoid(0x2b2b33, 0x1a1a22, 0xf2c9a0); scene.add(g);
+    const mask = box(g, 0.58, 0.18, 0.04, STD(0x111111), 0, 1.84, 0.26, false), hat = box(g, 0.6, 0.2, 0.6, STD(0x1a1a22), 0, 2.08, 0);
+    mask.visible = hat.visible = !dis;
     const sack = box(g, 0.6, 0.7, 0.4, STD(0xc8a878), 0, 1.3, -0.4); sack.visible = false;
     const orb = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 8), new THREE.MeshBasicMaterial({ color: 0xb98bff })); orb.position.y = 2.65; orb.visible = false; g.add(orb);
-    const a = Math.random() * 6.28, R = 58; let x = Math.cos(a) * R, z = Math.sin(a) * R;
-    const t = { g, sack, orb, power: null, x, z, r: 0.4, h: 1.95, hp: 3, state: 'go', carry: 0, stuck: 0, lastD: 999, detour: 0, detourDir: 0, atkT: 0, hurtT: 0, dir: 0, walk: 0 };
-    thieves.push(t); burst(x, 1, z, 0x333333, 10, 3); return t;
+    const a = opts.angle !== undefined ? opts.angle : Math.random() * 6.28, R = 58 + (dis ? Math.random() * 4 : 0); const x = Math.cos(a) * R, z = Math.sin(a) * R;
+    const t = { g, sack, orb, power: null, x, z, r: 0.4, h: 1.95, hp: 3, state: 'go', carry: 0, stuck: 0, lastD: 999, detour: 0, detourDir: 0, atkT: 0, hurtT: 0, dir: 0, walk: 0, disguised: dis, revealed: !dis, parts: [mask, hat], name: nm.n, fem: nm.f, tag: null, sayT: rnd(3, 8), bubble: null, bubbleT: 0 };
+    if (dis) t.tag = makeTag(g, nm.n, '#ffffff'); else burst(x, 1, z, 0x333333, 10, 3);
+    thieves.push(t); return t;
+  }
+  function revealThief(t) {
+    if (t.revealed) return; t.revealed = true; t.parts.forEach(p => p.visible = true); t.g.userData.shirt.color.setHex(0x2b2b33);
+    swapTag(t, 'Rabuś!', '#ff6b6b'); clearBubble(t); burst(t.x, 1.8, t.z, 0xff4f4f, 10, 3); SFX.no(); tip('To rabuś! Zdjął maskę!');
   }
   const POWER_NAMES = { djump: 'Podwójny skok', magnet: 'Magnes', punch: 'Super cios', regen: 'Regeneracja', jet: 'Plecak odrzutowy' };
   const ownedPowers = () => Object.keys(S.pw).filter(k => S.pw[k]);
@@ -733,21 +758,140 @@ canvas#c{display:block;width:100%;height:100%}
     const reward = Math.max(500, incomeRate * 60); earn(reward); S.st.duels = (S.st.duels || 0) + 1; S.rival = null; applyGear();
     banner('Wygrałeś pojedynek!', (back.length ? 'Odzyskane: ' + back.map(k => POWER_NAMES[k]).join(', ') + ' · ' : '') + '+' + fmtM(reward), 3800); SFX.quest(); save();
   }
+  // ---- the crowd (guests), rage of attacked locals, death penalty ----
+  const LINES_G = ['Dobry wieczór!', 'Piękna noc na spacer.', 'Czy tu jest jakaś karczma?', 'Słyszałem, że ktoś tu ma fabrykę!', 'Ja tylko oglądam...', 'Idę do znajomych, tamtędy.', 'Ciemno się robi...', 'Widziałeś Zosię? Nie lubi, jak ją ktoś zaczepia.', 'Ale tłum, co?', 'Podobno wśród nas są rabusie!', 'Ja nikogo nie okradam, słowo!'];
+  const LINES_T = ['Ładny ten piec... bardzo ładny.', 'Ile w nim kasy, ciekawe...', 'Ja tylko spaceruję. Prosto. Do pieca.', 'Dobry wieczór... a gdzie tu skarbiec?', 'Nie patrz tak na mnie.', 'Piec... gdzie jest piec?'];
+  const crowdQ = [];
+  avatar.rotation.order = 'YXZ';
+  function spawnCrowd(total, thievesN) {
+    const list = Array.from({ length: total }, (_, i) => i < thievesN);
+    for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
+    list.forEach((th, i) => crowdQ.push({ at: T + 0.6 + i * 1.1 + Math.random() * 0.6, thief: th, angle: Math.PI / 2 + rnd(-0.95, 0.95) }));
+  }
+  function pickGuestSpot(v) {
+    const spots = [[rnd(-30, -6), rnd(24, 40)], [rnd(-8, 8), rnd(26, 38)], [rnd(8, 28), rnd(24, 36)], [rnd(28, 36), rnd(-14, 18)], [rnd(-38, -26), rnd(-14, 14)], [rnd(-6, 6), rnd(36, 46)]];
+    const sp = pickOf(spots); v.tx = sp[0]; v.tz = sp[1]; v.t = rnd(4, 9);
+  }
+  function makeGuest(angle) {
+    const nm = pickName(), g = humanoid(pickOf(CROWD_COLORS), pickOf([0x3a4a6a, 0x5a4a3a, 0x2b3a5c]), pickOf(SKINS)); scene.add(g);
+    if (Math.random() < 0.5) box(g, 0.62, 0.15, 0.62, STD(pickOf([0x6b4a2e, 0xff9a3c, 0x3ddc84, 0x4f9dff])), 0, 2.1, 0);
+    const R = 56 + Math.random() * 6, x = Math.cos(angle) * R, z = Math.sin(angle) * R;
+    const v = { guest: true, name: nm.n, fem: nm.f, g, tag: null, x, z, r: 0.4, h: 1.95, tx: x, tz: z, t: 0, sayT: rnd(3, 9), bubble: null, bubbleT: 0, enraged: false, leave: false };
+    v.tag = makeTag(g, nm.n, '#ffffff'); guests.push(v); pickGuestSpot(v); return v;
+  }
+  function fleeFromRage(v) {
+    if (!rage || rage.n === v) return null;
+    const dx = v.x - rage.n.x, dz = v.z - rage.n.z, d = Math.hypot(dx, dz);
+    if (d > 18) return null;
+    return { tx: v.x + dx / (d || 1) * 10, tz: v.z + dz / (d || 1) * 10 };
+  }
+  function updateGuests(dt, night) {
+    while (crowdQ.length && crowdQ[0].at <= T) { const q = crowdQ.shift(); if (q.thief) makeThief({ disguise: true, angle: q.angle }); else makeGuest(q.angle); }
+    for (let i = guests.length - 1; i >= 0; i--) {
+      const v = guests[i]; if (v.enraged) continue;
+      v.t -= dt; v.sayT -= dt; v.bubbleT -= dt;
+      if (v.bubble && v.bubbleT <= 0) clearBubble(v);
+      let sp = 3, tx = v.tx, tz = v.tz, moving = true;
+      const fl = fleeFromRage(v);
+      if (fl) { tx = fl.tx; tz = fl.tz; sp = 6.5; }
+      else if (!night || v.leave) { const R = Math.hypot(v.x, v.z) || 1; tx = v.x / R * 90; tz = v.z / R * 90; sp = 4.5; if (R > 62) { scene.remove(v.g); guests.splice(i, 1); continue; } }
+      else { if (v.t <= 0) pickGuestSpot(v); tx = v.tx; tz = v.tz; moving = Math.hypot(tx - v.x, tz - v.z) > 0.7; }
+      const dx = tx - v.x, dz = tz - v.z, d = Math.hypot(dx, dz) || 1;
+      if (moving) { if (moveGround(v, dx / d * sp * dt, dz / d * sp * dt)) v.t = 0; v.g.rotation.y = Math.atan2(dx, dz); animWalk(v.g, sp, dt, false); } else animWalk(v.g, 0, dt, false);
+      v.g.position.set(v.x, 0, v.z);
+      if (!fl && !rage && v.sayT <= 0 && Math.hypot(P.x - v.x, P.z - v.z) < 12) { v.sayT = rnd(7, 14); say(v, pickOf(LINES_G)); }
+    }
+  }
+
+  // rage: an attacked local grows huge, grabs a giant knife and hunts the player
+  let rage = null, doom = 0, deathT = -1, deathBlack = false;
+  function angerNpc(n) {
+    if (rage || P.dead) return;
+    clearBubble(n); n.enraged = true; n.g.visible = true;
+    const u = n.g.userData; u.swing = true;
+    const knife = new THREE.Group(), steel = STD(0xdfe6f0, { metalness: 0.7, roughness: 0.2 });
+    box(knife, 0.14, 0.5, 0.14, STD(0x4a3018), 0, 0.15, 0); box(knife, 0.55, 0.1, 0.2, STD(0x8a6a2a), 0, 0.42, 0); box(knife, 0.1, 1.8, 0.34, steel, 0, 1.35, 0); box(knife, 0.06, 0.4, 0.3, steel, 0, 2.4, 0);
+    knife.position.set(0, -0.62, 0.15); knife.rotation.x = Math.PI / 2; u.arms[1].add(knife); n.knife = knife;
+    swapTag(n, n.name + '!!!', '#ff4a4a');
+    rage = { n, t: 0, phase: 'grow', wind: 0, breakT: 0, stompT: 0 };
+    banner(n.name + ' wpadł' + (n.fem ? 'a' : '') + ' w szał!', 'Uciekaj albo schowaj się wysoko!', 3200); SFX.roar(); SFX.hurt();
+    if (navigator.vibrate) { try { navigator.vibrate([80, 40, 80]); } catch (e) {} }
+  }
+  function calmNpc(n) {
+    const u = n.g.userData; n.enraged = false; n.g.scale.setScalar(1); n.r = 0.4; n.h = 1.95; u.swing = false; u.arms[0].rotation.x = u.arms[1].rotation.x = 0;
+    if (n.knife) { u.arms[1].remove(n.knife); n.knife = null; }
+    swapTag(n, n.name, '#ffffff'); n.g.position.set(n.x, 0, n.z); n.g.rotation.x = 0;
+    if (n.guest) n.leave = true;
+    n.sayT = 3; say(n, 'Hm... Nie bij mnie więcej!', 3.6); rage = null;
+  }
+  function updateRage(dt) {
+    if (!rage) { if (doom > 0) doom = Math.max(0, doom - dt * 0.5); return; }
+    const n = rage.n, u = n.g.userData; rage.t += dt;
+    const dx = P.x - n.x, dz = P.z - n.z, d = Math.hypot(dx, dz) || 1;
+    if (rage.phase === 'grow') {
+      const k = Math.min(1, rage.t / 1.6), e = k * k * (3 - 2 * k), sc = 1 + 1.7 * e;
+      n.g.scale.setScalar(sc); n.r = 0.4 * sc; n.h = 1.95 * sc; n.g.rotation.y = Math.atan2(dx, dz);
+      n.g.position.set(n.x + Math.sin(T * 60) * 0.05 * e, 0, n.z);
+      u.arms[1].rotation.x = -2.8 * e; u.arms[0].rotation.x = -2.2 * e;
+      doom = Math.min(0.85, doom + dt * 0.55);
+      if (rage.t > 1.9) { rage.phase = 'chase'; SFX.roar(); }
+    } else if (rage.phase === 'chase') {
+      doom = Math.min(0.92, doom + dt * 0.2);
+      n.g.rotation.y = Math.atan2(dx, dz);
+      const reach = 1.5 + n.r * 2.0;
+      if (rage.wind > 0) {
+        rage.wind -= dt; const k = 1 - Math.max(0, rage.wind) / 0.38; u.arms[1].rotation.x = -2.8 + 3.8 * k;
+        if (rage.wind <= 0) { SFX.whoosh(); if (d < reach * 1.4 && P.y < n.h) { playerDies(n); return; } u.arms[1].rotation.x = -2.8; }
+      } else if (d < reach && P.y < n.h) { rage.wind = 0.38; SFX.whoosh(); }
+      else {
+        const sp = 14;
+        if (moveGround(n, dx / d * sp * dt, dz / d * sp * dt)) { rage.breakT += dt; if (rage.breakT > 0.35) { rage.breakT = 0; breakBlockNear(n, dx / d, dz / d); } } else rage.breakT = 0;
+        animWalk(n.g, 6, dt, false); u.arms[0].rotation.x = -2.2 + Math.sin(u.walk) * 0.3; u.arms[1].rotation.x = -2.8 + Math.sin(u.walk + 1) * 0.2;
+        rage.stompT -= dt; if (rage.stompT <= 0) { rage.stompT = 0.3; SFX.stomp(); }
+      }
+      n.g.position.set(n.x, 0, n.z);
+      if (rage.t > 55) { banner(n.name + ' się uspokoił' + (n.fem ? 'a' : ''), 'Uff, udało ci się uciec'); calmNpc(n); }
+    } else if (rage.phase === 'done') { n.g.position.set(n.x, 0, n.z); u.arms[1].rotation.x = 0.6; }
+  }
+  function playerDies(n) {
+    P.dead = true; deathT = 0; deathBlack = false; rage.phase = 'done'; doom = 1; P.hurtT = 0; P.vx = P.vz = P.vy = 0;
+    const lost = Math.floor(S.cash / 2); S.cash -= lost; S.st.deaths = (S.st.deaths || 0) + 1;
+    $('deathTitle').textContent = 'ZGINĄŁEŚ';
+    $('deathTxt').innerHTML = n.name + ' ' + (n.fem ? 'cię rozwaliła' : 'cię rozwalił') + '.<br>Płacisz połowę kasy: <b>-' + fmtM(lost) + '</b>';
+    SFX.doom(); const f = $('flash'); f.style.opacity = 1; setTimeout(() => f.style.opacity = 0, 250);
+    if (navigator.vibrate) { try { navigator.vibrate(250); } catch (e) {} }
+    save();
+  }
+  function deathStep(dt) {
+    deathT += dt;
+    if (deathT > 0.9 && !deathBlack) { deathBlack = true; $('blackout').style.opacity = 1; }
+    if (deathT > 4.6) {
+      P.dead = false; deathT = -1; deathBlack = false; $('blackout').style.opacity = 0;
+      P.x = 0; P.z = 9; P.y = 0; P.vx = P.vz = P.vy = 0; S.hp = 5; updHearts(); P.hurtT = 1.5;
+      if (rage) calmNpc(rage.n);
+      banner('Odrodziłeś się', 'Straciłeś połowę kasy. Nie bij mieszkańców!', 3600);
+    }
+  }
   let thiefT = 6, wasNight = false;
   function updateThieves(dt, night) {
     if (night) { thiefT -= dt; const rivalOn = thieves.some(x => x.rival); const cap = rivalOn ? 2 : 2 + Math.min(6, Math.floor(S.owned.length / 5) + S.rebirths); if (thiefT <= 0 && thieves.length < cap) { makeThief(); thiefT = rnd(9, 15); } }
     for (let i = thieves.length - 1; i >= 0; i--) {
       const t = thieves[i]; if (t.rival) { updateRival(t, dt, night); continue; } t.atkT -= dt; t.hurtT -= dt; if (t.orb) t.orb.position.y = 2.65 + Math.sin(T * 5) * 0.1;
       const pd = Math.hypot(P.x - t.x, P.z - t.z);
+      if (t.disguised && !t.revealed) {
+        t.sayT -= dt; t.bubbleT -= dt; if (t.bubble && t.bubbleT <= 0) clearBubble(t);
+        if (t.sayT <= 0 && pd < 12 && !rage) { t.sayT = rnd(6, 12); say(t, pickOf(LINES_T)); }
+        if (Math.hypot(t.x - FURN_X, t.z) < 12) revealThief(t);
+      }
       let tx, tz;
       if (!night && t.state !== 'flee') { t.state = 'flee'; }
       if (t.state === 'flee') { const R = Math.hypot(t.x, t.z) || 1; tx = t.x / R * 80; tz = t.z / R * 80; if (R > 62) { removeThief(t); if (t.carry) tip('Rabuś uciekł z ' + fmtM(t.carry) + '!'); if (t.power) { S.rival = S.rival || { powers: [], level: 0 }; S.rival.powers.push(t.power); banner('Uciekł z twoją mocą!', 'Wróci następnej nocy jako Zbój Zbyszek. Szykuj się na pojedynek!', 3500); save(); } continue; } }
-      else if (pd < 7 && P.y < 2.5) { tx = P.x; tz = P.z; t.state = 'chase'; }
+      else if (pd < 7 && P.y < 2.5 && t.revealed) { tx = P.x; tz = P.z; t.state = 'chase'; }
       else { t.state = 'go'; tx = FURN_X - 2.5; tz = 0; }
       const dx = tx - t.x, dz = tz - t.z, d = Math.hypot(dx, dz) || 1;
       let dir = Math.atan2(dx, dz);
       if (t.detour > 0) { t.detour -= dt; dir += t.detourDir; }
-      const sp = t.state === 'flee' ? 6.5 : 4.2;
+      const sp = t.state === 'flee' ? 6.5 : (t.revealed ? 4.2 : 3.2);
       const blocked = moveGround(t, Math.sin(dir) * sp * dt, Math.cos(dir) * sp * dt);
       if (blocked && t.detour <= 0) { t.stuck += dt; if (t.stuck > 0.6) { t.detour = rnd(0.8, 1.8); t.detourDir = (Math.random() < 0.5 ? 1 : -1) * rnd(1.2, 1.9); t.stuck = 0; } } else t.stuck = Math.max(0, t.stuck - dt);
       t.g.position.set(t.x, t.hurtT > 0 ? 0.15 : 0, t.z); t.g.rotation.y = dir; animWalk(t.g, sp, dt, false);
@@ -761,7 +905,7 @@ canvas#c{display:block;width:100%;height:100%}
 
   // ================= PLAYER =================
   const R_ = 0.4, PH = 1.95;
-  const P = { x: 0, y: 0, z: 9, vx: 0, vy: 0, vz: 0, grounded: true, facing: Math.PI, walk: 0, jumps: 0, fuel: 3, hurtT: 0 };
+  const P = { dead: false, x: 0, y: 0, z: 9, vx: 0, vy: 0, vz: 0, grounded: true, facing: Math.PI, walk: 0, jumps: 0, fuel: 3, hurtT: 0 };
   let yaw = 0, pitch = 0.42, camDist = 13, jumpBuf = 0, coyote = 0, jumpHeld = false, hitCd = 0, swingT = 0, regenT = 0, foodBuff = 0;
   const keys = {};
   let anyPanel = () => !$('craft').classList.contains('hide') || !$('shop').classList.contains('hide') || !$('confirm').classList.contains('hide') || !$('pause').classList.contains('hide') || !$('menu').classList.contains('hide');
@@ -807,19 +951,21 @@ canvas#c{display:block;width:100%;height:100%}
   function toggleBuild() { building = !building; delMode = false; $('delBtn').classList.remove('act'); document.body.classList.toggle('building', building); $('mode').style.display = building ? 'block' : 'none'; $('mode').textContent = 'TRYB BUDOWANIA'; $('buildBtn').classList.toggle('act', building); if (building && isTouch) tip('Stuknij w ziemię albo klocek, żeby postawić'); }
 
   function hurtPlayer(n) {
-    if (P.hurtT > 0) return;
+    if (P.hurtT > 0 || P.dead) return;
     if (S.tools.armor && Math.random() < 0.5) { tip('Zbroja zablokowała cios!'); SFX.stone(); return; }
     S.hp -= n; P.hurtT = 0.6; SFX.hurt(); updHearts(); const f = $('flash'); f.style.opacity = 1; setTimeout(() => f.style.opacity = 0, 160);
     if (navigator.vibrate) { try { navigator.vibrate(90); } catch (e) {} }
     if (S.hp <= 0) { const lost = Math.floor(S.cash * 0.1); S.cash -= lost; S.hp = 5; P.x = 0; P.z = 9; P.y = 0; P.vx = P.vz = P.vy = 0; updHearts(); const rv = thieves.find(x => x.rival); if (rv) { S.rival.level = (S.rival.level || 0) + 1; removeThief(rv); banner('Przegrałeś pojedynek', 'Zbyszek wróci jutro silniejszy. Zrób miecz, zbroję i pieczeń!', 3800); save(); } else banner('Zemdlałeś!', 'Straciłeś ' + fmtM(lost) + '. Obuduj się albo zrób miecz', 3000); }
   }
   function attack() {
-    if (hitCd > 0 || state !== 'play' || paused) return;
+    if (hitCd > 0 || state !== 'play' || paused || P.dead) return;
     hitCd = 0.35; swingT = 0.3; SFX.whoosh();
     const fx = Math.sin(P.facing), fz = Math.cos(P.facing);
     let best = null, bd = 9;
     const consider = (obj, x, z, rad, kind) => { const dx = x - P.x, dz = z - P.z, d = Math.hypot(dx, dz) - rad; if (d > 2.2) return; const dot = (dx * fx + dz * fz) / (Math.hypot(dx, dz) || 1); if (dot < 0.15 && d > 0.6) return; if (d < bd) { bd = d; best = { obj, kind, x, z }; } };
     thieves.forEach(t => consider(t, t.x, t.z, t.r, 'thief'));
+    villagers.forEach(v => { if (!v.enraged && v.g.visible) consider(v, v.x, v.z, v.r, 'npc'); });
+    guests.forEach(v => { if (!v.enraged) consider(v, v.x, v.z, v.r, 'npc'); });
     animals.forEach(a => consider(a, a.x, a.z, a.r + 0.4, 'animal'));
     trees.forEach(t => { if (t.wood > 0) consider(t, t.x, t.z, 0.4 * t.s + 0.2, 'tree'); });
     rocks.forEach(r => { if (r.stone > 0) consider(r, r.x, r.z, r.s * 0.75, 'rock'); });
@@ -837,8 +983,10 @@ canvas#c{display:block;width:100%;height:100%}
       const a = best.obj; a.hp -= dmg; a.hurtT = 0.3; a.state = 'flee'; a.t = 4; SFX.chop(); burst(a.x, 1.5, a.z, 0xffffff, 6, 3, 0.15);
       const kb = S.pw.punch ? 3 : 1.2; moveGround(a, fx * kb, fz * kb);
       if (a.hp <= 0) { const n = a.kind === 'elk' ? 2 : 1; S.inv.mieso += n; S.inv.skora += n; S.st.hunted++; SFX.poof(); burst(a.x, 1.5, a.z, 0xffffff, 26, 5, 0.25, 4); popText(a.x, 3, a.z, `+${n} mięso +${n} skóra`, '#ffd9a8', 0.8); scene.remove(a.g); animals.splice(animals.indexOf(a), 1); checkQuest(); }
+    } else if (best.kind === 'npc') {
+      angerNpc(best.obj);
     } else if (best.kind === 'thief') {
-      const t = best.obj; t.hp -= dmg; t.hurtT = 0.3; if (t.rival) { updBoss(t); t.wind = Math.min(t.wind, 0.65); } SFX.stone(); burst(t.x, 1.8, t.z, 0xffe066, 6, 3, 0.12);
+      const t = best.obj; if (t.disguised && !t.revealed) revealThief(t); t.hp -= dmg; t.hurtT = 0.3; if (t.rival) { updBoss(t); t.wind = Math.min(t.wind, 0.65); } SFX.stone(); burst(t.x, 1.8, t.z, 0xffe066, 6, 3, 0.12);
       const kb = S.pw.punch ? 4 : 1.5; moveGround(t, fx * kb, fz * kb);
       if (t.hp <= 0) { if (t.rival) winDuel(t); else { if (t.power) { S.pw[t.power] = true; applyGear(); banner('Moc odzyskana!', POWER_NAMES[t.power] + ' wraca do ciebie'); } if (t.carry) { earn(t.carry); popText(t.x, 3, t.z, 'Odzyskane ' + fmtM(t.carry), '#7CFFB2', 1); } else { const loot = Math.max(10, incomeRate * 5); earn(loot); popText(t.x, 3, t.z, '+' + fmtM(loot), '#7CFFB2', 0.9); } } S.st.thieves++; SFX.poof(); burst(t.x, 1.2, t.z, t.rival ? 0xffc93c : 0x333333, t.rival ? 50 : 24, 5, 0.25, 4); removeThief(t); checkQuest(); }
     }
@@ -1006,13 +1154,22 @@ canvas#c{display:block;width:100%;height:100%}
   const DAY_LEN = 300; let dayT = 20, nightNow = 0;
   function dayNight(dt) {
     dayT = (dayT + dt) % DAY_LEN; const f = dayT / DAY_LEN, el = Math.sin(f * Math.PI * 2);
-    const night = Math.max(0, Math.min(1, -el * 2.5 + 0.2)), dusk = Math.max(0, 1 - Math.abs(el) * 3.5); nightNow = night;
+    const nightRaw = Math.max(0, Math.min(1, -el * 2.5 + 0.2)), night = Math.max(nightRaw, doom), dusk = Math.max(0, 1 - Math.abs(el) * 3.5) * (1 - doom); nightNow = nightRaw;
     paintSky(DAY_T.clone().lerp(NIGHT_T, night).lerp(DUSK_T, dusk * 0.6), DAY_H.clone().lerp(NIGHT_H, night).lerp(DUSK_H, dusk * 0.7));
     hemi.intensity = 0.72 - night * 0.4; sun.intensity = 0.9 - night * 0.62; sun.color.setHex(dusk > 0.4 ? 0xffb37a : night > 0.5 ? 0x9fb4ff : 0xfff4e0);
     stars.material.opacity = night; moon.material.opacity = night;
-    lampMats.forEach(m => m.emissiveIntensity = 0.12 + night * 1.3); blockMats.lampa.emissiveIntensity = 0.5 + night * 1.2;
-    const isNight = night > 0.5;
-    if (isNight && !wasNight && state === 'play') { SFX.night(); if (S.rival && S.rival.powers && S.rival.powers.length) { banner('Pojedynek!', 'Zbój Zbyszek wraca z twoją mocą. Pokonaj go!', 3500); setTimeout(() => { if (!thieves.some(x => x.rival) && nightNow > 0.5) makeRival(); }, 1500); } else banner('Zapada noc!', 'Rabusie idą po twoją kasę. Obuduj piec!', 3000); }
+    const lampK = doom > 0.05 ? (Math.random() < 0.55 ? 0 : 1) * (1 - doom) : 1;
+    lampMats.forEach(m => m.emissiveIntensity = (0.12 + night * 1.3) * lampK); blockMats.lampa.emissiveIntensity = (0.5 + night * 1.2) * lampK;
+    $('doom').style.opacity = doom.toFixed(2);
+    const isNight = nightRaw > 0.5;
+    if (isNight && !wasNight && state === 'play') {
+      SFX.night(); S.nights = (S.nights || 0) + 1;
+      const rivalNight = S.rival && S.rival.powers && S.rival.powers.length;
+      if (!S.crowdDone) { S.crowdDone = true; banner('Pierwsza noc!', 'Na działkę idzie tłum ludzi. Niektórzy to rabusie!', 4500); spawnCrowd(16, 5); setTimeout(() => tip('Rabusie idą prosto do pieca. Uważaj, kogo bijesz!'), 4700); }
+      else if (S.nights % 3 === 0) { banner('Goście na działce!', 'Znowu ktoś idzie. Który to rabuś?', 3500); spawnCrowd(7, 2); }
+      else if (!rivalNight) banner('Zapada noc!', 'Rabusie idą po twoją kasę. Obuduj piec!', 3000);
+      if (rivalNight) { setTimeout(() => { banner('Pojedynek!', 'Zbój Zbyszek wraca z twoją mocą. Pokonaj go!', 3500); }, S.crowdDone && S.nights === 1 ? 5200 : 0); setTimeout(() => { if (!thieves.some(x => x.rival) && nightNow > 0.5) makeRival(); }, 1500); }
+    }
     if (!isNight && wasNight && state === 'play') { banner('Świta!', 'Rabusie uciekają'); SFX.day(); }
     wasNight = isNight;
     const toNight = ((0.5 - f + 1) % 1) * DAY_LEN;
@@ -1026,14 +1183,14 @@ canvas#c{display:block;width:100%;height:100%}
     T += dt; hitCd -= dt; swingT -= dt; foodBuff -= dt;
     for (const d of droppers) { d.t -= dt * rateMul(); if (d.t <= 0) { d.t += DROP_INTERVAL; spawnOre(d); } d.body.scale.y += (1 - d.body.scale.y) * dt * 10; if (d.rainbow) d.light.material.color.setHSL((T * 0.3) % 1, 0.9, 0.6); }
     upgraders.forEach(u => u.field.material.opacity += (0.3 + Math.sin(T * 4 + u.x) * 0.08 - u.field.material.opacity) * dt * 4);
-    updateOres(dt); movePlayer(dt);
+    updateOres(dt); if (!P.dead) movePlayer(dt); else { P.vx = P.vz = 0; deathStep(dt); }
     const night = nightNow > 0.5;
-    updateAnimals(dt); updateVillagers(dt, night); updateThieves(dt, night);
+    updateAnimals(dt); updateVillagers(dt, night); updateGuests(dt, night); updateThieves(dt, night); updateRage(dt);
     animalRespawn -= dt; if (animalRespawn <= 0) { animalRespawn = 20; if (animals.length < 11) makeAnimal(Math.random() < 0.35 ? 'elk' : 'deer'); }
     trees.forEach(t => { if (t.regrow > 0) { t.regrow -= dt; const k = 0.25 + 0.75 * Math.max(0, 1 - t.regrow / 60); t.g.scale.setScalar(k); if (t.regrow <= 0) { t.wood = 4; t.g.scale.setScalar(1); t.sol.y1 = 3 * t.s; } } });
     rocks.forEach(r => { if (r.regrow > 0) { r.regrow -= dt; if (r.regrow <= 0) { r.stone = 5; r.m.visible = true; r.sol.y1 = r.s * 1.2; } } });
     regenT += dt; if (regenT > (S.pw.regen ? 6 : 18)) { regenT = 0; if (S.hp < 5) { S.hp++; updHearts(); } }
-    for (const b of Object.values(buttons)) { const inside = Math.abs(P.x - b.g.position.x) < 1.4 && Math.abs(P.z - b.g.position.z) < 1.4 && P.y < 1.2; if (inside && !b.inside) purchase(b); if (!buttons[b.it.id]) continue; b.inside = inside; drawButton(b); b.spr.position.y = 2.6 + Math.sin(T * 2 + b.g.position.x) * 0.1; }
+    for (const b of Object.values(buttons)) { const inside = !P.dead && Math.abs(P.x - b.g.position.x) < 1.4 && Math.abs(P.z - b.g.position.z) < 1.4 && P.y < 1.2; if (inside && !b.inside) purchase(b); if (!buttons[b.it.id]) continue; b.inside = inside; drawButton(b); b.spr.position.y = 2.6 + Math.sin(T * 2 + b.g.position.x) * 0.1; }
     const t = nextTarget(); if (t) { arrow.visible = true; arrow.position.set(t.g.position.x, 4.6 + Math.abs(Math.sin(T * 3)) * 0.6, t.g.position.z); arrow.rotation.y += dt * 2; arM.color.setHex(S.cash >= priceOf(t.it) ? 0x7CFFB2 : 0xffc93c); } else arrow.visible = false;
     giftT -= dt; if (!gift && giftT <= 0) { spawnGift(); giftT = rnd(50, 90); }
     if (gift) { gift.g.rotation.y += dt * 1.5; gift.life -= dt; const gd = Math.hypot(P.x - gift.x, P.z - gift.z);
@@ -1060,12 +1217,14 @@ canvas#c{display:block;width:100%;height:100%}
     if (!P.grounded) { u.arms[0].rotation.x = u.arms[1].rotation.x = -2.6; }
     if (swingT > 0) { const k = swingT / 0.3; u.arms[1].rotation.x = -2.4 * k; }
     avatar.visible = P.hurtT > 0 ? Math.floor(T * 20) % 2 === 0 : true;
+    avatar.rotation.x += ((P.dead ? -1.5 : 0) - avatar.rotation.x) * Math.min(1, dt * 8);
     let top = 0; for (const b of boxesNear(P.x, P.y - 3, P.z, 0, 4)) if (P.x > b.x0 && P.x < b.x1 && P.z > b.z0 && P.z < b.z1 && b.y1 <= P.y + 0.1) top = Math.max(top, b.y1);
     blob.position.set(P.x, top + 0.03, P.z); blob.scale.setScalar(Math.max(0.4, 1 - (P.y - top) * 0.08));
     if (state === 'menu') yaw += dt * 0.08;
     const ch = Math.sin(pitch) * camDist, cr = Math.cos(pitch) * camDist;
     const tx_ = P.x + Math.sin(yaw) * cr, ty = P.y + 1.6 + ch, tz = P.z + Math.cos(yaw) * cr, ck = 1 - Math.exp(-9 * dt);
     camera.position.x += (tx_ - camera.position.x) * ck; camera.position.y += (ty - camera.position.y) * ck; camera.position.z += (tz - camera.position.z) * ck;
+    if (rage && rage.phase === 'chase' && !paused) { camera.position.x += (Math.random() - 0.5) * 0.18; camera.position.y += (Math.random() - 0.5) * 0.12; }
     camera.lookAt(P.x, P.y + 1.4, P.z); sky.position.copy(camera.position);
     const f = dayT / DAY_LEN; sun.position.set(P.x + Math.cos(f * Math.PI * 2) * 40, 25 + Math.abs(Math.sin(f * Math.PI * 2)) * 30, P.z + 20); sun.target.position.set(P.x, 0, P.z);
     updateGhost(mouseX, mouseY);
